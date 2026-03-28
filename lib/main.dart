@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
 import 'Sale/sale_unplan.dart';
+import 'Sale/vistit_plan.dart';
 import 'api/get_item_api.dart';
 import 'login/login.dart';
 import 'sync/sync.dart';
@@ -31,7 +32,6 @@ class DMSApp extends StatelessWidget {
   }
 }
 
-/// Wrapper to show Login page first
 class LoginPageWrapper extends StatelessWidget {
   const LoginPageWrapper({super.key});
 
@@ -217,96 +217,104 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           child: SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  children: [
-                    /// TOP BAR
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 22,
-                              backgroundColor: Colors.white70,
-                              child: const Icon(Icons.person,
-                                  size: 26, color: Colors.blue),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(userName,
-                                    style: const TextStyle(
-                                        color: Colors.black87,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold)),
-                                Text(companyName,
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.black54)),
-                              ],
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            const Icon(Icons.chat_bubble, color: Colors.black87),
-                            const SizedBox(width: 12),
-                            const Icon(Icons.notifications,
-                                color: Colors.black87),
-                            const SizedBox(width: 12),
-                            GestureDetector(
-                              onTap: () => _logout(),
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1976D2),
-                                  borderRadius: BorderRadius.circular(8),
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Column(
+                        children: [
+                          /// TOP BAR
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              GestureDetector(
+                                onTap: () async {
+                                  final choice = await showMenu<String>(
+                                    context: context,
+                                    position: const RelativeRect.fromLTRB(
+                                        100, 80, 0, 0),
+                                    items: [
+                                      const PopupMenuItem<String>(
+                                          value: 'logout', child: Text('Logout')),
+                                    ],
+                                  );
+                                  if (choice == 'logout') {
+                                    _logout();
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 22,
+                                      backgroundColor: Colors.white70,
+                                      child: const Icon(Icons.person,
+                                          size: 26, color: Colors.blue),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        Text(userName,
+                                            style: const TextStyle(
+                                                color: Colors.black87,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold)),
+                                        Text(companyName,
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(Icons.exit_to_app,
-                                    color: Colors.white, size: 24),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                              Row(
+                                children: const [
+                                  Icon(Icons.chat_bubble, color: Colors.black87),
+                                  SizedBox(width: 12),
+                                  Icon(Icons.notifications, color: Colors.black87),
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          notificationBar(
+                              "2 Orders Pending Approval, 5 Customers Not Visited Today"),
+
+                          const SizedBox(height: 10),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text("Reports",
+                                style: TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 6),
+                          const ReportSection(),
+
+                          const SizedBox(height: 10),
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text("Main Menu",
+                                style: TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(height: 6),
+                          const MenuSection(),
+                        ],
+                      ),
                     ),
-
-                    notificationBar(
-                        "2 Orders Pending Approval, 5 Customers Not Visited Today"),
-
-                    const SizedBox(height: 10),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text("Reports",
-                          style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 6),
-                    const ReportSection(),
-
-                    const SizedBox(height: 10),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text("Main Menu",
-                          style: TextStyle(
-                              color: Colors.black87,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(height: 6),
-                    MenuSection(),
-
-                    const SizedBox(height: 20),
-                    const AppInfoRow(),
-                  ],
+                  ),
                 ),
-              ),
+                const AppInfoRow(), // footer
+              ],
             ),
           ),
         ),
@@ -389,34 +397,30 @@ class ReportSection extends StatelessWidget {
 ////////////////////////////////////////////////////////
 
 class MenuSection extends StatelessWidget {
-  MenuSection({super.key});
+  const MenuSection({super.key});
 
   Widget menuCard(String title, IconData icon, {VoidCallback? onTap}) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 110,
-          margin: const EdgeInsets.all(4),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1976D2),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: Colors.white, size: 28),
-              const SizedBox(height: 6),
-              Text(title,
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center),
-            ],
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 110,
+        margin: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1976D2),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 28),
+            const SizedBox(height: 6),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center),
+          ],
         ),
       ),
     );
@@ -424,48 +428,43 @@ class MenuSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // Responsive Grid
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
-        Row(
-          children: [
-            menuCard("Sale Order", Icons.add_shopping_cart, onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SaleUnplanPage()));
-            }),
-            menuCard("Visit Plan", Icons.map),
-            menuCard("Customer", Icons.people, onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const CustomerMasterPage()),
-              );
-            }),
-          ],
-        ),
-        Row(
-          children: [
-            menuCard("Item", Icons.inventory, onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ItemMasterPage()),
-              );
-            }),
-
-            menuCard("Sync Data", Icons.sync, onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const SyncDataPage()));
-            }),
-            menuCard("News / Updates", Icons.article),
-          ],
-        ),
-        Row(
-          children: [
-            menuCard("Exchange Rate", Icons.currency_exchange),
-          ],
-        ),
+        menuCard("Sale Order", Icons.add_shopping_cart, onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const SaleUnplanPage()));
+        }),
+        menuCard("Visit Plan", Icons.map, onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const VisitPlanPage()));
+        }),
+        menuCard("Customer", Icons.people, onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CustomerMasterPage()));
+        }),
+        menuCard("Item", Icons.inventory, onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ItemMasterPage()));
+        }),
+        menuCard("Sync Data", Icons.sync, onTap: () {
+          Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SyncDataPage()));
+        }),
+        menuCard("News / Updates", Icons.article),
+        menuCard("Reports", Icons.bar_chart),
+        menuCard("Payments", Icons.payment),
+        menuCard("Analytics", Icons.show_chart),
       ],
     );
   }
@@ -480,10 +479,13 @@ class AppInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      "ICCKH | Version v1.0.1 | © 2026 ICCKH. All rights reserved.",
-      style: TextStyle(color: Colors.black54, fontSize: 12),
-      textAlign: TextAlign.center,
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Text(
+        "ICCKH | Version v1.0.1 | © 2026 ICCKH. All rights reserved.",
+        style: TextStyle(color: Colors.black54, fontSize: 12),
+        textAlign: TextAlign.center,
+      ),
     );
   }
 }

@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // APIs
-import '../api/get_item_api.dart';
 import '../api/get_customer_api.dart';
+import '../api/get_item_api.dart';
+import '../api/get_visitplan_api.dart';
 import '../api/get_warehouse_api.dart';
 import '../api/get_uom_api.dart';
 import '../api/get_uom_group_api.dart';
 import '../api/get_price_list_api.dart';
-import '../api/get_itemprice_api.dart'; // ✅ NEW
+import '../api/get_itemprice_api.dart';
 
 class SyncDataPage extends StatefulWidget {
   const SyncDataPage({super.key});
@@ -26,7 +27,8 @@ class _SyncDataPageState extends State<SyncDataPage> {
     "UOM",
     "UOM Group",
     "Price List",
-    "Item Pricing", // ✅ NEW
+    "Item Pricing",
+    "Visit Plan", // ✅ NEW
     "Clear Data",
     "Sync All"
   ];
@@ -52,7 +54,6 @@ class _SyncDataPageState extends State<SyncDataPage> {
     final deviceID = prefs.getString("deviceID") ?? "UNKNOWN";
     const password = "123456";
 
-    // ✅ CLEAR DATA MODULE with confirmation dialog
     if (module == "Clear Data") {
       final confirm = await showDialog<bool>(
         context: context,
@@ -132,8 +133,13 @@ class _SyncDataPageState extends State<SyncDataPage> {
             deviceID: deviceID,
           );
         } else if (mod == "Item Pricing") {
-          // ✅ NEW ITEM PRICING
           list = await ItemPricingApi.fetchAndStoreItemPricing(
+            userCode: userCode,
+            password: password,
+            deviceID: deviceID,
+          );
+        } else if (mod == "Visit Plan") { // ✅ NEW MODULE
+          list = await VisitPlanApi.fetchAndStoreVisitPlans(
             userCode: userCode,
             password: password,
             deviceID: deviceID,
@@ -151,7 +157,6 @@ class _SyncDataPageState extends State<SyncDataPage> {
     });
   }
 
-  /// ✅ CLEAR ALL LOCAL DATA
   Future<void> _clearAllData() async {
     setState(() {
       isSyncing = true;
@@ -164,9 +169,9 @@ class _SyncDataPageState extends State<SyncDataPage> {
       await UomApi.clearLocalUoms();
       await UomGroupApi.clearLocalUomGroups();
       await PriceListApi.clearLocalPriceLists();
-      await ItemPricingApi.clearLocalItemPricing(); // ✅ CLEAR ITEM PRICING
+      await ItemPricingApi.clearLocalItemPricing();
+      await VisitPlanApi.clearLocalVisitPlans(); // ✅ CLEAR VISIT PLAN
 
-      // Reset UI
       for (var module in modules) {
         progress[module] = 0;
         syncedCount[module] = 0;
@@ -185,7 +190,6 @@ class _SyncDataPageState extends State<SyncDataPage> {
     });
   }
 
-  /// ✅ Progress animation with zero-length handling
   Future<void> _updateProgress(String mod, int total) async {
     totalCount[mod] = total;
 

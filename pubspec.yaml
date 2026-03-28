@@ -10,6 +10,9 @@ environment:
 dependencies:
   shared_preferences: ^2.2.2
   http: ^1.1.0
+  intl: ^0.18.1   # <-- add this line
+  image_picker: ^1.0.4
+  geolocator: ^10.1.0
   flutter:
     sdk: flutter
 

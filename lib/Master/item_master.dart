@@ -133,6 +133,7 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
         _buildDetailRow("Bar Code", item.barCode),
         _buildDetailRow("Def Entry", item.defEntry.toString()),
         _buildDetailRow("Alt Qty", item.altQty.toString()),
+        _buildDetailRow("Selling Price", item.sellingPrice.toString()),
       ],
     );
   }
