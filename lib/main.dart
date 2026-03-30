@@ -416,10 +416,47 @@ class MenuSection extends StatelessWidget {
           children: [
             Icon(icon, color: Colors.white, size: 28),
             const SizedBox(height: 6),
-            Text(title,
-                style: const TextStyle(
-                    color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center),
+            Text(
+              title,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// FULL WIDTH CARD
+  Widget fullWidthCard(String title, IconData icon,
+      {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 110,
+        margin: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(10),
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D47A1), // darker for highlight
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3)],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 30),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -428,43 +465,41 @@ class MenuSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Responsive Grid
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+    return Column(
       children: [
-        menuCard("Sale Order", Icons.add_shopping_cart, onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const SaleUnplanPage()));
-        }),
-        menuCard("Visit Plan", Icons.map, onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const VisitPlanPage()));
-        }),
-        menuCard("Customer", Icons.people, onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const CustomerMasterPage()));
-        }),
-        menuCard("Item", Icons.inventory, onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ItemMasterPage()));
-        }),
-        menuCard("Sync Data", Icons.sync, onTap: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SyncDataPage()));
-        }),
-        menuCard("News / Updates", Icons.article),
-        menuCard("Reports", Icons.bar_chart),
-        menuCard("Payments", Icons.payment),
-        menuCard("Analytics", Icons.show_chart),
+        /// GRID PART
+        GridView.count(
+          crossAxisCount: 3,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            menuCard("Sync Data", Icons.sync, onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SyncDataPage()));
+            }),
+            menuCard("Sale Order", Icons.add_shopping_cart, onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const SaleUnplanPage()));
+            }),
+            menuCard("Visit Plan", Icons.map, onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const VisitPlanPage()));
+            }),
+            menuCard("Customer", Icons.people, onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const CustomerMasterPage()));
+            }),
+            menuCard("Item", Icons.inventory, onTap: () {
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ItemMasterPage()));
+            }),
+
+            menuCard("Sale Listing", Icons.article),
+          ],
+        ),
+
+        /// FULL WIDTH REPORT CARD
+        fullWidthCard("Reports", Icons.bar_chart),
       ],
     );
   }

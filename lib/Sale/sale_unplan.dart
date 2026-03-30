@@ -63,7 +63,7 @@ class _SaleUnplanPageState extends State<SaleUnplanPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Sale Order", style: TextStyle(color: Colors.white)),
+          title: const Text("Direct Sale Order", style: TextStyle(color: Colors.white)),
           backgroundColor: Colors.blue.shade700,
           iconTheme: const IconThemeData(color: Colors.white),
         ),

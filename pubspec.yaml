@@ -8,23 +8,23 @@ environment:
   sdk: ^3.11.0
 
 dependencies:
-  shared_preferences: ^2.2.2
-  http: ^1.1.0
-  intl: ^0.18.1   # <-- add this line
-  image_picker: ^1.0.4
-  geolocator: ^10.1.0
   flutter:
     sdk: flutter
-
+  shared_preferences: ^2.2.2
+  http: ^1.1.0
+  intl: ^0.20.2
+  image_picker: ^1.0.4
+  geolocator: ^14.0.2        # latest stable
+  permission_handler: ^12.0.1
+  device_info_plus: ^12.3.0   # latest stable
   cupertino_icons: ^1.0.8
-  device_info_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
