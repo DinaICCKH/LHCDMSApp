@@ -45,7 +45,7 @@ class Warehouse {
 /// WAREHOUSE API & LOCAL STORAGE
 /// =======================
 class WarehouseApi {
-  static const String baseUrl = "http://192.168.88.108:90/api/DMS";
+  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
 
   /// Fetch warehouse from API and store locally
   static Future<List<Warehouse>> fetchAndStoreWarehouses({

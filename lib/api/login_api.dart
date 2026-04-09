@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class LoginApi {
   // Replace with your actual API URL or IP if testing on device
-  static const String baseUrl = "http://192.168.88.108:90/api/DMS";
+  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
 
   /// Login function
   /// Returns a Map containing {success, message, data}

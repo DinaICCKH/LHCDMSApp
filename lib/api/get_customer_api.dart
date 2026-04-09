@@ -89,7 +89,7 @@ class Customer {
 /// CUSTOMER API & LOCAL STORAGE
 /// =======================
 class CustomerApi {
-  static const String baseUrl = "http://192.168.88.108:90/api/DMS";
+  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
 
   /// Get customers from API and store to SharedPreferences
   static Future<List<Customer>> fetchAndStoreCustomers({

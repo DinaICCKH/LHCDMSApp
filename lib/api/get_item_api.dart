@@ -195,7 +195,7 @@ class Item {
 /// ITEM API & LOCAL STORAGE
 /// =======================
 class ItemApi {
-  static const String baseUrl = "http://192.168.88.108:90/api/DMS";
+  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
 
   /// ---------------- FETCH & STORE ITEMS ----------------
   static Future<List<Item>> fetchAndStoreItems({
