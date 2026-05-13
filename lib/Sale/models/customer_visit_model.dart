@@ -3,11 +3,13 @@ class CustomerVisit {
   final String cardName;
   final String? phone;
   final String? fullAddress;
+  final int? detailEntry;
 
   CustomerVisit({
     required this.cardCode,
     required this.cardName,
     this.phone,
     this.fullAddress,
+    this.detailEntry,
   });
 }

@@ -5,25 +5,42 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.0
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+
+  camera: ^0.11.3+7   # for camera access
+  # 🔐 storage
   shared_preferences: ^2.2.2
+
+  # 🌐 networking
   http: ^1.1.0
+
+  # 📅 formatting
   intl: ^0.20.2
+
+  # 📷 media
   image_picker: ^1.0.4
-  geolocator: ^14.0.2        # latest stable
+
+  # 📍 location
+  geolocator: ^14.0.2
   permission_handler: ^12.0.1
-  device_info_plus: ^12.3.0   # latest stable
+
+  # 📱 device info
+  device_info_plus: ^12.3.0
+
+  # 🍏 UI
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^6.0.0
 
+  # 🚀 app icon generator
   flutter_launcher_icons: ^0.14.4
 
 flutter:
@@ -36,4 +53,6 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/logo.png"
+
   adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/logo.png"

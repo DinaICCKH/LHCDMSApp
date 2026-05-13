@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../api/get_customer_api.dart';
 
 class CustomerMasterPage extends StatefulWidget {
@@ -11,14 +10,17 @@ class CustomerMasterPage extends StatefulWidget {
 
 class _CustomerMasterPageState extends State<CustomerMasterPage> {
   List<Customer> allCustomers = [];
+  List<Customer> filteredCustomers = [];
   List<Customer> displayedCustomers = [];
+
   bool isLoading = true;
+  bool isLoadingMore = false;
+
   String searchQuery = "";
 
-  // Pagination
   final int pageSize = 30;
   int currentPage = 1;
-  bool isLoadingMore = false;
+
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -34,156 +36,219 @@ class _CustomerMasterPageState extends State<CustomerMasterPage> {
     super.dispose();
   }
 
+  /// ================= LOAD
   Future<void> _loadCustomers() async {
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
-      final localCustomers = await CustomerApi.getLocalCustomers();
+      final data = await CustomerApi.getLocalCustomers();
+
       setState(() {
-        allCustomers = localCustomers;
-        displayedCustomers = _paginateCustomers(localCustomers, currentPage, pageSize);
+        allCustomers = data;
+        filteredCustomers = data;
+
+        currentPage = 1;
+        displayedCustomers = _paginate(data);
+
         isLoading = false;
       });
     } catch (e) {
-      print("Error loading customers: $e");
-      setState(() {
-        allCustomers = [];
-        displayedCustomers = [];
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
     }
   }
 
-  List<Customer> _paginateCustomers(List<Customer> customers, int page, int size) {
-    int start = (page - 1) * size;
-    int end = start + size;
-    if (start >= customers.length) return [];
-    if (end > customers.length) end = customers.length;
-    return customers.sublist(0, end);
+  /// ================= PAGINATION (FIXED)
+  List<Customer> _paginate(List<Customer> list) {
+    final end = (currentPage * pageSize);
+
+    if (end >= list.length) return list;
+
+    return list.sublist(0, end);
   }
 
+  /// ================= LOAD MORE
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 50 &&
+        _scrollController.position.maxScrollExtent - 150 &&
         !isLoadingMore) {
-      _loadMoreCustomers();
+      _loadMore();
     }
   }
 
-  void _loadMoreCustomers() {
-    if (displayedCustomers.length >= allCustomers.length) return;
+  void _loadMore() {
+    if (displayedCustomers.length >= filteredCustomers.length) return;
+
     setState(() {
       isLoadingMore = true;
-      currentPage += 1;
-      displayedCustomers = _paginateCustomers(allCustomers, currentPage, pageSize);
+      currentPage++;
+      displayedCustomers = _paginate(filteredCustomers);
       isLoadingMore = false;
     });
   }
 
-  void _filterCustomers(String query) {
-    setState(() {
-      searchQuery = query.toLowerCase();
+  /// ================= SEARCH (FIXED)
+  void _filter(String value) {
+    final q = value.toLowerCase().trim();
 
-      final filtered = allCustomers.where((c) {
-        return (c.cardCode.toLowerCase().contains(searchQuery)) ||
-            (c.cardName.toLowerCase().contains(searchQuery)) ||
-            (c.groupName.toLowerCase().contains(searchQuery)) ||
-            ((c.contactPersonName ?? "").toLowerCase().contains(searchQuery)) ||
-            ((c.fullAddress ?? "").toLowerCase().contains(searchQuery)) ||
-            ((c.paymentTerm ?? "").toLowerCase().contains(searchQuery)) ||
-            ((c.priceList ?? "").toLowerCase().contains(searchQuery));
-      }).toList();
+    final filtered = allCustomers.where((c) {
+      return c.cardCode.toLowerCase().contains(q) ||
+          c.cardName.toLowerCase().contains(q) ||
+          c.groupName.toLowerCase().contains(q) ||
+          c.contactPersonName.toLowerCase().contains(q) ||
+          c.fullAddress.toLowerCase().contains(q) ||
+          c.paymentTerm.toLowerCase().contains(q) ||
+          c.priceList.toLowerCase().contains(q);
+    }).toList();
+
+    setState(() {
+      searchQuery = q;
+      filteredCustomers = filtered;
 
       currentPage = 1;
-      displayedCustomers = _paginateCustomers(filtered, currentPage, pageSize);
+      displayedCustomers = _paginate(filtered);
     });
   }
 
-  Widget customerCard(Customer customer) {
-    return ExpansionTile(
-      leading: const Icon(Icons.person, size: 40, color: Colors.grey),
-      title: Text(customer.cardName, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text("Code: ${customer.cardCode}"),
-      trailing: const Icon(Icons.keyboard_arrow_down),
-      childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      children: [
-        _buildDetailRow("Group", customer.groupName),
-        _buildDetailRow("Contact Person", customer.contactPersonName ?? ""),
-        _buildDetailRow("Tel1", customer.tel1 ?? ""),
-        _buildDetailRow("Tel2", customer.tel2 ?? ""),
-        _buildDetailRow("Mobile", customer.mobile ?? ""),
-        _buildDetailRow("Full Address", customer.fullAddress ?? ""),
-        _buildDetailRow("Payment Term", customer.paymentTerm ?? ""),
-        _buildDetailRow("Price List", customer.priceList ?? ""),
-        _buildDetailRow("Credit Limit", customer.creditLimit.toStringAsFixed(2)),
-      ],
-    );
-  }
+  /// ================= CARD UI (MODERN)
+  Widget customerCard(Customer c) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
+        leading: CircleAvatar(
+          backgroundColor: Colors.blue.shade100,
+          child: const Icon(Icons.person, color: Colors.blue),
+        ),
+
+        title: Text(
+          c.cardName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        subtitle: Text(
+          "Code: ${c.cardCode}",
+          style: const TextStyle(fontSize: 12),
+        ),
+
+        childrenPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 10,
+        ),
+
         children: [
-          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
-          Expanded(child: Text(value)),
+          _row("Group", c.groupName),
+          _row("Contact", c.contactPersonName),
+          _row("Phone", c.tel1),
+          _row("Mobile", c.mobile),
+          _row("Address", c.fullAddress),
+          _row("Payment", c.paymentTerm),
+          _row("Price List", c.priceList),
+          _row("Credit", c.creditLimit.toStringAsFixed(2)),
         ],
       ),
     );
   }
 
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              "$label:",
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value.isEmpty ? "-" : value,
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ================= UI
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           "Customer Master",
-          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        iconTheme: const IconThemeData(
-          color: Colors.white, // Back arrow color
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         backgroundColor: const Color(0xFF1976D2),
+        iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
       ),
+
       body: Column(
         children: [
-          // Search bar
+          /// SEARCH
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.all(12),
             child: TextField(
-              decoration: const InputDecoration(
-                hintText: "Search by code, name, group, etc.",
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              onChanged: _filter,
+              decoration: InputDecoration(
+                hintText: "Search customers...",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
               ),
-              onChanged: _filterCustomers,
             ),
           ),
-          // Customer list
+
+          /// LIST
           Expanded(
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : displayedCustomers.isEmpty
-                ? const Center(child: Text("No customers found"))
-                : ListView.separated(
+                ? const Center(
+              child: Text("No customers found"),
+            )
+                : ListView.builder(
               controller: _scrollController,
               itemCount: displayedCustomers.length + 1,
-              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 if (index < displayedCustomers.length) {
-                  return customerCard(displayedCustomers[index]);
-                } else {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Center(
-                      child: isLoadingMore
-                          ? const CircularProgressIndicator()
-                          : const SizedBox.shrink(),
-                    ),
+                  return customerCard(
+                    displayedCustomers[index],
                   );
                 }
+
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Center(
+                    child: isLoadingMore
+                        ? const CircularProgressIndicator()
+                        : const SizedBox(),
+                  ),
+                );
               },
             ),
           ),

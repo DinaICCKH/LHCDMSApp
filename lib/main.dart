@@ -5,11 +5,28 @@ import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
 import 'Sale/sale_unplan.dart';
 import 'Sale/vistit_plan.dart';
-import 'api/get_item_api.dart';
+import 'api/login_api.dart';
 import 'login/login.dart';
 import 'sync/sync.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-void main() {
+/// ✅ ADDED: Request camera + location on startup
+Future<void> _requestAppPermissions() async {
+  final statuses = await [
+    Permission.camera,
+    Permission.location,
+  ].request();
+
+  /// Optional: print result for debugging
+  statuses.forEach((permission, status) {
+    print("Permission $permission => $status");
+  });
+}
+
+/// ✅ ADDED: call _requestAppPermissions() before runApp
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await _requestAppPermissions();
   runApp(const DMSApp());
 }
 
@@ -19,10 +36,10 @@ class DMSApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: "DMS Modern Dashboard",
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         fontFamily: "Roboto",
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1976D2)),
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black87),
         ),
@@ -83,10 +100,11 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadUser() async {
-    final prefs = await SharedPreferences.getInstance();
+    final user = SessionManager.currentUser;
+    if (!mounted) return;
     setState(() {
-      userName = prefs.getString("name") ?? "Unknown User";
-      companyName = prefs.getString("companyName") ?? "";
+      userName = user?.name ?? "Unknown User";
+      companyName = user?.companyName ?? "";
     });
   }
 
@@ -97,21 +115,18 @@ class _DashboardPageState extends State<DashboardPage> {
       shouldLogout = await showDialog<bool>(
         context: context,
         barrierDismissible: true,
-        builder: (context) => Dialog(
+        builder: (ctx) => Dialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+              borderRadius: BorderRadius.circular(20)),
           elevation: 10,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.exit_to_app, size: 50, color: Color(0xFF1976D2)),
-                const SizedBox(height: 10),
+                const Icon(Icons.exit_to_app,
+                    size: 50, color: Color(0xFF1976D2)),
+                const SizedBox(height: 12),
                 const Text(
                   "Confirm Logout",
                   style: TextStyle(
@@ -125,35 +140,38 @@ class _DashboardPageState extends State<DashboardPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 14, color: Colors.black54),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF90CAF9),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        child: Text("Cancel"),
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(
+                              color: Color(0xFF1976D2)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text("Cancel",
+                            style: TextStyle(
+                                color: Color(0xFF1976D2))),
                       ),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF1976D2),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        child: Text("Logout"),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1976D2),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text("Logout"),
                       ),
                     ),
                   ],
@@ -171,7 +189,6 @@ class _DashboardPageState extends State<DashboardPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       if (!mounted) return;
-
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
@@ -180,29 +197,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Widget notificationBar(String text) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF90CAF9),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.notifications, color: Colors.white),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(text,
-                style: const TextStyle(color: Colors.white, fontSize: 14)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 680;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: _resetSessionTimer,
@@ -211,109 +210,47 @@ class _DashboardPageState extends State<DashboardPage> {
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
               colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
             ),
           ),
           child: SafeArea(
             child: Column(
               children: [
+                _buildHeader(context),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
+                  child: _buildNotificationBar(
+                      "2 Orders Pending Approval, 5 Customers Not Visited Today"),
+                ),
+
                 Expanded(
                   child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                      child: Column(
-                        children: [
-                          /// TOP BAR
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              GestureDetector(
-                                onTap: () async {
-                                  final choice = await showMenu<String>(
-                                    context: context,
-                                    position: const RelativeRect.fromLTRB(
-                                        100, 80, 0, 0),
-                                    items: [
-                                      const PopupMenuItem<String>(
-                                          value: 'logout', child: Text('Logout')),
-                                    ],
-                                  );
-                                  if (choice == 'logout') {
-                                    _logout();
-                                  }
-                                },
-                                child: Row(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 22,
-                                      backgroundColor: Colors.white70,
-                                      child: const Icon(Icons.person,
-                                          size: 26, color: Colors.blue),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                      children: [
-                                        Text(userName,
-                                            style: const TextStyle(
-                                                color: Colors.black87,
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold)),
-                                        Text(companyName,
-                                            style: const TextStyle(
-                                                fontSize: 12,
-                                                color: Colors.black54)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Row(
-                                children: const [
-                                  Icon(Icons.chat_bubble, color: Colors.black87),
-                                  SizedBox(width: 12),
-                                  Icon(Icons.notifications, color: Colors.black87),
-                                ],
-                              ),
-                            ],
-                          ),
-
-                          notificationBar(
-                              "2 Orders Pending Approval, 5 Customers Not Visited Today"),
-
-                          const SizedBox(height: 10),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("Reports",
-                                style: TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 6),
-                          const ReportSection(),
-
-                          const SizedBox(height: 10),
-                          const Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text("Main Menu",
-                                style: TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(height: 6),
-                          const MenuSection(),
-                        ],
-                      ),
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                        16, 4, 16, isSmallScreen ? 4 : 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionTitle("Reports"),
+                        const SizedBox(height: 6),
+                        ReportSection(isSmallScreen: isSmallScreen),
+                        const SizedBox(height: 12),
+                        _sectionTitle("Main Menu"),
+                        const SizedBox(height: 6),
+                        MenuSection(
+                          isSmallScreen: isSmallScreen,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                     ),
                   ),
                 ),
-                const AppInfoRow(), // footer
+
+                const AppInfoRow(),
               ],
             ),
           ),
@@ -321,192 +258,449 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
-}
 
-////////////////////////////////////////////////////////
-/// REPORT SECTION
-////////////////////////////////////////////////////////
-
-class ReportSection extends StatelessWidget {
-  const ReportSection({super.key});
-
-  Widget reportCard(String title, String value, IconData icon, double trend) {
-    return Expanded(
-      child: Container(
-        height: 90,
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1976D2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: Colors.white, size: 22),
-            const SizedBox(height: 6),
-            Text(title,
-                style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(value,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(width: 6),
-                Icon(
-                  trend >= 0 ? Icons.arrow_upward : Icons.arrow_downward,
-                  color: trend >= 0 ? Colors.greenAccent : Colors.redAccent,
-                  size: 14,
-                )
-              ],
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: GestureDetector(
+              onTap: () async {
+                final choice = await showMenu<String>(
+                  context: context,
+                  position: const RelativeRect.fromLTRB(0, 80, 300, 0),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  items: [
+                    PopupMenuItem<String>(
+                      value: 'logout',
+                      child: Row(
+                        children: const [
+                          Icon(Icons.logout, color: Color(0xFF1976D2)),
+                          SizedBox(width: 8),
+                          Text('Logout'),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+                if (choice == 'logout') _logout();
+              },
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 22,
+                    backgroundColor: Colors.white,
+                    child: const Icon(Icons.person,
+                        size: 26, color: Color(0xFF1976D2)),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          userName,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        if (companyName.isNotEmpty)
+                          Text(
+                            companyName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.black54),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+          Row(
+            children: [
+              _headerIconBtn(Icons.chat_bubble_outline),
+              const SizedBox(width: 8),
+              _headerIconBtn(Icons.notifications_none),
+              const SizedBox(width: 4),
+              _headerIconBtn(Icons.logout, onTap: () => _logout()),
+            ],
+          ),
+        ],
       ),
     );
   }
 
+  Widget _headerIconBtn(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white54,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: Colors.black87, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBar(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1976D2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_active,
+              color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+          color: Colors.black87,
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.3),
+    );
+  }
+}
+
+////////////////////////////////////////////////////////
+/// REPORT SECTION  —  FULLY RESPONSIVE
+////////////////////////////////////////////////////////
+
+class ReportSection extends StatelessWidget {
+  final bool isSmallScreen;
+  const ReportSection({super.key, this.isSmallScreen = false});
+
   @override
   Widget build(BuildContext context) {
+    final cards = [
+      _ReportData("Total Sale", "120", Icons.shopping_cart, true),
+      _ReportData("Total Visit", "35", Icons.map, false),
+      _ReportData("Total Item", "80", Icons.inventory, true),
+      _ReportData("Pending Orders", "5", Icons.pending_actions, true),
+      _ReportData("Pending Visits", "2", Icons.schedule, false),
+      _ReportData("Stock Alert", "10", Icons.warning_amber, true),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: cards.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 6,
+        mainAxisSpacing: 6,
+        childAspectRatio: isSmallScreen ? 1.1 : 1.05,
+      ),
+      itemBuilder: (_, i) => _ReportCard(data: cards[i]),
+    );
+  }
+}
+
+class _ReportData {
+  final String title;
+  final String value;
+  final IconData icon;
+  final bool isUp;
+  _ReportData(this.title, this.value, this.icon, this.isUp);
+}
+
+class _ReportCard extends StatelessWidget {
+  final _ReportData data;
+  const _ReportCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF1976D2), Color(0xFF1565C0)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+              color: Color(0x331976D2), blurRadius: 8, offset: Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Icon(data.icon, color: Colors.white70, size: 20),
+          Text(
+            data.title,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  data.value,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                data.isUp ? Icons.arrow_upward : Icons.arrow_downward,
+                color: data.isUp ? Colors.greenAccent : Colors.redAccent,
+                size: 13,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+////////////////////////////////////////////////////////
+/// Request camera permission
+////////////////////////////////////////////////////////
+
+Future<bool> requestCameraPermission() async {
+  var status = await Permission.camera.status;
+  if (status.isGranted) {
+    return true;
+  } else {
+    var result = await Permission.camera.request();
+    return result.isGranted;
+  }
+}
+
+/// ✅ ADDED: Request location permission individually
+Future<bool> requestLocationPermission() async {
+  var status = await Permission.location.status;
+  if (status.isGranted) {
+    return true;
+  } else {
+    var result = await Permission.location.request();
+    return result.isGranted;
+  }
+}
+
+////////////////////////////////////////////////////////
+/// MENU SECTION  —  FULLY RESPONSIVE
+////////////////////////////////////////////////////////
+
+class MenuSection extends StatelessWidget {
+  final bool isSmallScreen;
+
+  const MenuSection({
+    super.key,
+    this.isSmallScreen = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final menuItems = [
+      _MenuItem(
+        "Sync Data",
+        Icons.sync_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const SyncDataPage())),
+      ),
+      _MenuItem(
+        "Sale Order",
+        Icons.add_shopping_cart_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const SaleUnplanPage())),
+      ),
+      _MenuItem(
+        "Visit Plan",
+        Icons.map_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const VisitPlanPage())),
+      ),
+      _MenuItem(
+        "Customer",
+        Icons.people_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const CustomerMasterPage())),
+      ),
+      _MenuItem(
+        "Item",
+        Icons.inventory_2_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const ItemMasterPage())),
+      ),
+      _MenuItem("Sale Listing", Icons.article_rounded),
+    ];
+
     return Column(
       children: [
-        Row(
-          children: [
-            reportCard("Total Sale", "120", Icons.shopping_cart, 5),
-            reportCard("Total Visit", "35", Icons.map, -2),
-            reportCard("Total Item", "80", Icons.inventory, 0),
-          ],
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: menuItems.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 6,
+            mainAxisSpacing: 6,
+            childAspectRatio: isSmallScreen ? 1.0 : 0.95,
+          ),
+          itemBuilder: (_, i) => _MenuCard(item: menuItems[i]),
         ),
-        Row(
-          children: [
-            reportCard("Pending Orders", "5", Icons.pending_actions, 3),
-            reportCard("Pending Visits", "2", Icons.schedule, -1),
-            reportCard("Stock Alert", "10", Icons.warning, 0),
-          ],
+        const SizedBox(height: 6),
+        _FullWidthCard(
+          title: 'Statistics',   // <-- add this
+          icon: Icons.bar_chart_rounded,
+          onTap: () {},
         ),
       ],
     );
   }
 }
 
-////////////////////////////////////////////////////////
-/// MENU SECTION
-////////////////////////////////////////////////////////
+class _MenuItem {
+  final String title;
+  final IconData icon;
+  final VoidCallback? onTap;
+  _MenuItem(this.title, this.icon, {this.onTap});
+}
 
-class MenuSection extends StatelessWidget {
-  const MenuSection({super.key});
+class _MenuCard extends StatelessWidget {
+  final _MenuItem item;
+  const _MenuCard({required this.item});
 
-  Widget menuCard(String title, IconData icon, {VoidCallback? onTap}) {
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: item.onTap,
       child: Container(
-        height: 110,
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF1976D2),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 2)],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x221976D2), blurRadius: 8, offset: Offset(0, 4))
+          ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 28),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                item.icon,
+                color: const Color(0xFF1976D2),
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                item.title,
+                style: const TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  /// FULL WIDTH CARD
-  Widget fullWidthCard(String title, IconData icon,
-      {VoidCallback? onTap}) {
+class _FullWidthCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _FullWidthCard({
+    required this.title,
+    required this.icon,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 110,
-        margin: const EdgeInsets.all(4),
-        padding: const EdgeInsets.all(10),
         width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFF0D47A1), // darker for highlight
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 3)],
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: const [
+            BoxShadow(
+                color: Color(0x440D47A1),
+                blurRadius: 10,
+                offset: Offset(0, 5))
+          ],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: Colors.white, size: 30),
-            const SizedBox(width: 10),
+            Icon(icon, color: Colors.white, size: 28),
+            const SizedBox(width: 12),
             Text(
               title,
               style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold),
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
             ),
+            const SizedBox(width: 8),
+            const Icon(Icons.arrow_forward_ios,
+                color: Colors.white70, size: 14),
           ],
         ),
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        /// GRID PART
-        GridView.count(
-          crossAxisCount: 3,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            menuCard("Sync Data", Icons.sync, onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SyncDataPage()));
-            }),
-            menuCard("Sale Order", Icons.add_shopping_cart, onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const SaleUnplanPage()));
-            }),
-            menuCard("Visit Plan", Icons.map, onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const VisitPlanPage()));
-            }),
-            menuCard("Customer", Icons.people, onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const CustomerMasterPage()));
-            }),
-            menuCard("Item", Icons.inventory, onTap: () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const ItemMasterPage()));
-            }),
-
-            menuCard("Sale Listing", Icons.article),
-          ],
-        ),
-
-        /// FULL WIDTH REPORT CARD
-        fullWidthCard("Reports", Icons.bar_chart),
-      ],
-    );
-  }
 }
 
 ////////////////////////////////////////////////////////
-/// APP INFO
+/// APP INFO FOOTER
 ////////////////////////////////////////////////////////
 
 class AppInfoRow extends StatelessWidget {
@@ -514,11 +708,16 @@ class AppInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 8),
-      child: Text(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border: Border(
+            top: BorderSide(color: Color(0xFFBBDEFB), width: 1)),
+      ),
+      child: const Text(
         "ICCKH | Version v1.0.1 | © 2026 ICCKH. All rights reserved.",
-        style: TextStyle(color: Colors.black54, fontSize: 12),
+        style: TextStyle(color: Colors.black45, fontSize: 11),
         textAlign: TextAlign.center,
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'login_api.dart';
 
 /// =======================
 /// ITEM MODEL CLASS
@@ -25,7 +26,7 @@ class Item {
   final String frgnName;
   final String invUoMCode;
   final int invUoMEntry;
-  final DateTime updatedDate;
+  final DateTime? updatedDate;
   final String ocrCode;
   final String ocrCode2;
   final String ocrCode3;
@@ -69,7 +70,7 @@ class Item {
     required this.frgnName,
     required this.invUoMCode,
     required this.invUoMEntry,
-    required this.updatedDate,
+    this.updatedDate,
     required this.ocrCode,
     required this.ocrCode2,
     required this.ocrCode3,
@@ -94,99 +95,115 @@ class Item {
     required this.sellingPrice,
   });
 
-  /// ---------------- FROM JSON ----------------
+  /// ---------------- FROM JSON (FIXED SAFETY) ----------------
   factory Item.fromJson(Map<String, dynamic> json) {
+    double toDouble(dynamic value) {
+      if (value == null) return 0.0;
+      return (value as num).toDouble();
+    }
+
+    int toInt(dynamic value) {
+      if (value == null) return 0;
+      return (value as num).toInt();
+    }
+
+    String toStr(dynamic value) {
+      return value?.toString() ?? '';
+    }
+
     return Item(
-      code: json['code'] ?? 0,
-      message: json['message'] ?? '',
-      itemCode: json['itemCode'] ?? '',
-      itemName: json['itemName'] ?? '',
-      itemGroupCode: json['itemGroupCode'] ?? 0,
-      itemGroupName: json['itemGroupName'] ?? '',
-      ugpEntry: json['ugpEntry'] ?? 0,
-      onhand: (json['onhand'] ?? 0).toDouble(),
-      onOrder: (json['onOrder'] ?? 0).toDouble(),
-      isCommited: (json['isCommited'] ?? 0).toDouble(),
-      available: (json['available'] ?? 0).toDouble(),
-      minLevel: (json['minLevel'] ?? 0).toDouble(),
-      maxLevel: (json['maxLevel'] ?? 0).toDouble(),
-      status: json['status'] ?? '',
-      imageUrlServer: json['imageUrlServer'],
-      imageUrlLocal: json['imageUrlLocal'],
-      frgnName: json['frgnName'] ?? '',
-      invUoMCode: json['invUoMCode'] ?? '',
-      invUoMEntry: json['invUoMEntry'] ?? 0,
-      updatedDate: DateTime.tryParse(json['updatedDate'] ?? '') ?? DateTime.now(),
-      ocrCode: json['ocrCode'] ?? '',
-      ocrCode2: json['ocrCode2'] ?? '',
-      ocrCode3: json['ocrCode3'] ?? '',
-      ocrCode4: json['ocrCode4'] ?? '',
-      manufacturer: json['manufacturer'] ?? '',
-      manufacturerDes: json['manufacturerDes'],
-      subGroup: json['subGroup'] ?? '',
-      subGroupDes: json['subGroupDes'],
-      itemBrand: json['itemBrand'] ?? '',
-      itemBrandDes: json['itemBrandDes'],
-      itemType: json['itemType'] ?? '',
-      itemTypeDes: json['itemTypeDes'],
-      proteinType: json['proteinType'] ?? '',
-      proteinTypeDes: json['proteinTypeDes'],
-      subGroup2: json['subGroup2'] ?? '',
-      subGroup2Des: json['subGroup2Des'],
-      factory: json['factory'] ?? '',
-      factoryDes: json['factoryDes'],
-      barCode: json['barCode'] ?? '',
-      defEntry: json['defEntry'] ?? 0,
-      altQty: (json['altQty'] ?? 0).toDouble(),
-      sellingPrice: (json['sellingPrice'] ?? 0).toDouble(),
+      code: toInt(json['Code']),
+      message: toStr(json['Message']),
+      itemCode: toStr(json['ItemCode']),
+      itemName: toStr(json['ItemName']),
+      itemGroupCode: toInt(json['ItemGroupCode']),
+      itemGroupName: toStr(json['ItemGroupName']),
+      ugpEntry: toInt(json['UgpEntry']),
+      onhand: toDouble(json['Onhand']),
+      onOrder: toDouble(json['OnOrder']),
+      isCommited: toDouble(json['IsCommited']),
+      available: toDouble(json['Available']),
+      minLevel: toDouble(json['MinLevel']),
+      maxLevel: toDouble(json['MaxLevel']),
+      status: toStr(json['Status']),
+      imageUrlServer: json['ImageUrlServer'],
+      imageUrlLocal: json['ImageUrlLocal'],
+      frgnName: toStr(json['FrgnName']),
+      invUoMCode: toStr(json['InvUoMCode']),
+      invUoMEntry: toInt(json['InvUoMEntry']),
+      updatedDate: json['UpdatedDate'] != null
+          ? DateTime.tryParse(json['UpdatedDate'].toString())
+          : null,
+      ocrCode: toStr(json['OcrCode']),
+      ocrCode2: toStr(json['OcrCode2']),
+      ocrCode3: toStr(json['OcrCode3']),
+      ocrCode4: toStr(json['OcrCode4']),
+      manufacturer: toStr(json['Manufacturer']),
+      manufacturerDes: json['ManufacturerDes'],
+      subGroup: toStr(json['SubGroup']),
+      subGroupDes: json['SubGroupDes'],
+      itemBrand: toStr(json['ItemBrand']),
+      itemBrandDes: json['ItemBrandDes'],
+      itemType: toStr(json['ItemType']),
+      itemTypeDes: json['ItemTypeDes'],
+      proteinType: toStr(json['ProteinType']),
+      proteinTypeDes: json['ProteinTypeDes'],
+      subGroup2: toStr(json['SubGroup2']),
+      subGroup2Des: json['SubGroup2Des'],
+      factory: toStr(json['Factory']),
+      factoryDes: json['FactoryDes'],
+      barCode: toStr(json['BarCode']),
+      defEntry: toInt(json['DefEntry']),
+      altQty: toDouble(json['AltQty']),
+      sellingPrice: toDouble(json['SellingPrice']),
     );
   }
 
   /// ---------------- TO JSON ----------------
   Map<String, dynamic> toJson() {
     return {
-      "code": code,
-      "message": message,
-      "itemCode": itemCode,
-      "itemName": itemName,
-      "itemGroupCode": itemGroupCode,
-      "itemGroupName": itemGroupName,
-      "ugpEntry": ugpEntry,
-      "onhand": onhand,
-      "onOrder": onOrder,
-      "isCommited": isCommited,
-      "available": available,
-      "minLevel": minLevel,
-      "maxLevel": maxLevel,
-      "status": status,
-      "imageUrlServer": imageUrlServer,
-      "imageUrlLocal": imageUrlLocal,
-      "frgnName": frgnName,
-      "invUoMCode": invUoMCode,
-      "invUoMEntry": invUoMEntry,
-      "updatedDate": updatedDate.toIso8601String(),
-      "ocrCode": ocrCode,
-      "ocrCode2": ocrCode2,
-      "ocrCode3": ocrCode3,
-      "ocrCode4": ocrCode4,
-      "manufacturer": manufacturer,
-      "manufacturerDes": manufacturerDes,
-      "subGroup": subGroup,
-      "subGroupDes": subGroupDes,
-      "itemBrand": itemBrand,
-      "itemBrandDes": itemBrandDes,
-      "itemType": itemType,
-      "itemTypeDes": itemTypeDes,
-      "proteinType": proteinType,
-      "proteinTypeDes": proteinTypeDes,
-      "subGroup2": subGroup2,
-      "subGroup2Des": subGroup2Des,
-      "factory": factory,
-      "factoryDes": factoryDes,
-      "barCode": barCode,
-      "defEntry": defEntry,
-      "altQty": altQty,
-      "sellingPrice": sellingPrice,
+      "Code": code,
+      "Message": message,
+      "ItemCode": itemCode,
+      "ItemName": itemName,
+      "ItemGroupCode": itemGroupCode,
+      "ItemGroupName": itemGroupName,
+      "UgpEntry": ugpEntry,
+      "Onhand": onhand,
+      "OnOrder": onOrder,
+      "IsCommited": isCommited,
+      "Available": available,
+      "MinLevel": minLevel,
+      "MaxLevel": maxLevel,
+      "Status": status,
+      "ImageUrlServer": imageUrlServer,
+      "ImageUrlLocal": imageUrlLocal,
+      "FrgnName": frgnName,
+      "InvUoMCode": invUoMCode,
+      "InvUoMEntry": invUoMEntry,
+      "UpdatedDate": updatedDate?.toIso8601String(),
+      "OcrCode": ocrCode,
+      "OcrCode2": ocrCode2,
+      "OcrCode3": ocrCode3,
+      "OcrCode4": ocrCode4,
+      "Manufacturer": manufacturer,
+      "ManufacturerDes": manufacturerDes,
+      "SubGroup": subGroup,
+      "SubGroupDes": subGroupDes,
+      "ItemBrand": itemBrand,
+      "ItemBrandDes": itemBrandDes,
+      "ItemType": itemType,
+      "ItemTypeDes": itemTypeDes,
+      "ProteinType": proteinType,
+      "ProteinTypeDes": proteinTypeDes,
+      "SubGroup2": subGroup2,
+      "SubGroup2Des": subGroup2Des,
+      "Factory": factory,
+      "FactoryDes": factoryDes,
+      "BarCode": barCode,
+      "DefEntry": defEntry,
+      "AltQty": altQty,
+      "SellingPrice": sellingPrice,
     };
   }
 }
@@ -195,7 +212,8 @@ class Item {
 /// ITEM API & LOCAL STORAGE
 /// =======================
 class ItemApi {
-  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
+  static const String baseUrl =
+      "https://www.icckh.com/dms/dev/lhc/api/DMS_/";
 
   /// ---------------- FETCH & STORE ITEMS ----------------
   static Future<List<Item>> fetchAndStoreItems({
@@ -203,11 +221,20 @@ class ItemApi {
     required String password,
     required String deviceID,
   }) async {
-    final url = Uri.parse("$baseUrl/GetItems");
+
+    final user = SessionManager.currentUser;
+
+    if (user == null) {
+      print("❌ No user session found. Please login first.");
+      return [];
+    }
+
+    final url = Uri.parse("${baseUrl}GetItems");
+
     final body = jsonEncode({
-      "UserCode": userCode,
+      "UserCode": user.userCode,
       "Password": password,
-      "DeviceID": deviceID,
+      "DeviceID": user.deviceID,
     });
 
     try {
@@ -217,11 +244,14 @@ class ItemApi {
         body: body,
       );
 
+      print("📡 RESPONSE: ${response.body}");
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> result = jsonDecode(response.body);
+        final result = jsonDecode(response.body);
+
         if (result['success'] == true && result['data'] is List) {
           final List<Item> items = (result['data'] as List)
-              .map((e) => Item.fromJson(e as Map<String, dynamic>))
+              .map((e) => Item.fromJson(e))
               .toList();
 
           final prefs = await SharedPreferences.getInstance();
@@ -245,12 +275,12 @@ class ItemApi {
   static Future<List<Item>> getLocalItems() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = prefs.getString("items");
+
     if (jsonStr != null) {
       final List<dynamic> jsonList = jsonDecode(jsonStr);
-      return jsonList
-          .map((e) => Item.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return jsonList.map((e) => Item.fromJson(e)).toList();
     }
+
     return [];
   }
 

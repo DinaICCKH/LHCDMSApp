@@ -41,7 +41,7 @@ class Uom {
 /// UOM API & LOCAL STORAGE
 /// =======================
 class UomApi {
-  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
+  static const String baseUrl = "https://www.icckh.com/dms/dev/lhc/api/DMS_";
 
   /// Fetch UOM from API and store locally
   static Future<List<Uom>> fetchAndStoreUoms({

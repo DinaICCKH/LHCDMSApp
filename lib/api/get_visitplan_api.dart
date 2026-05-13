@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'login_api.dart';
 
 /// =======================
-/// VISIT PLAN MODEL CLASS
+/// VISIT PLAN MODEL
 /// =======================
 class VisitPlan {
   final int code;
@@ -46,126 +47,150 @@ class VisitPlan {
     required this.fullAddress,
   });
 
-  factory VisitPlan.fromJson(Map<String, dynamic> json) => VisitPlan(
-    code: json['code'] ?? 0,
-    message: json['message'] ?? "",
-    docEntry: json['docEntry'] ?? 0,
-    salesCode: json['salesCode'] ?? 0,
-    docYear: json['docYear'] ?? 0,
-    remarkH: json['remarkH'] ?? "",
-    docNum: json['docNum'] ?? "",
-    status: json['status'] ?? "",
-    visitDate: DateTime.tryParse(json['visitDate'] ?? "") ?? DateTime.now(),
-    cardCode: json['cardCode'] ?? "",
-    cardName: json['cardName'] ?? "",
-    tel1: json['tel1'] ?? "",
-    contactPersonName: json['contactPersonName'] ?? "",
-    reasonType: json['reasonType'] ?? "",
-    remark: json['remark'] ?? "",
-    synced: json['synced'] ?? "",
-    detailEntry: json['detailEntry'] ?? 0,
-    fullAddress: json['fullAddress'] ?? "",
-  );
+  /// SAFE PARSERS
+  static String _str(dynamic v) => v?.toString() ?? '';
+  static int _int(dynamic v) =>
+      (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 0;
 
+  /// =======================
+  /// FROM JSON (FIXED CASE)
+  /// =======================
+  factory VisitPlan.fromJson(Map<String, dynamic> json) {
+    return VisitPlan(
+      code: _int(json['Code']),
+      message: _str(json['Message']),
+
+      docEntry: _int(json['DocEntry']),
+      salesCode: _int(json['SalesCode']),
+      docYear: _int(json['DocYear']),
+
+      remarkH: _str(json['RemarkH']),
+      docNum: _str(json['DocNum']),
+      status: _str(json['Status']),
+
+      visitDate: DateTime.tryParse(_str(json['VisitDate'])) ??
+          DateTime.now(),
+
+      cardCode: _str(json['CardCode']),
+      cardName: _str(json['CardName']),
+      tel1: _str(json['Tel1']),
+      contactPersonName: _str(json['ContactPersonName']),
+
+      reasonType: _str(json['ReasonType']),
+      remark: _str(json['Remark']),
+      synced: _str(json['Synced']),
+
+      detailEntry: _int(json['DetailEntry']),
+      fullAddress: _str(json['FullAddress']),
+    );
+  }
+
+  /// =======================
+  /// TO JSON (LOCAL STORAGE)
+  /// =======================
   Map<String, dynamic> toJson() => {
-    "code": code,
-    "message": message,
-    "docEntry": docEntry,
-    "salesCode": salesCode,
-    "docYear": docYear,
-    "remarkH": remarkH,
-    "docNum": docNum,
-    "status": status,
-    "visitDate": visitDate.toIso8601String(),
-    "cardCode": cardCode,
-    "cardName": cardName,
-    "tel1": tel1,
-    "contactPersonName": contactPersonName,
-    "reasonType": reasonType,
-    "remark": remark,
-    "synced": synced,
-    "detailEntry": detailEntry,
-    "fullAddress": fullAddress,
+    "Code": code,
+    "Message": message,
+    "DocEntry": docEntry,
+    "SalesCode": salesCode,
+    "DocYear": docYear,
+    "RemarkH": remarkH,
+    "DocNum": docNum,
+    "Status": status,
+    "VisitDate": visitDate.toIso8601String(),
+    "CardCode": cardCode,
+    "CardName": cardName,
+    "Tel1": tel1,
+    "ContactPersonName": contactPersonName,
+    "ReasonType": reasonType,
+    "Remark": remark,
+    "Synced": synced,
+    "DetailEntry": detailEntry,
+    "FullAddress": fullAddress,
   };
 }
 
 /// =======================
-/// VISIT PLAN API & STORAGE
+/// VISIT PLAN API (FIXED LIKE ITEM API)
 /// =======================
 class VisitPlanApi {
-  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
+  static const String baseUrl =
+      "https://www.icckh.com/dms/dev/lhc/api/DMS_/";
 
-  /// Fetch from API and store locally
+  /// =======================
+  /// FETCH + STORE
+  /// =======================
   static Future<List<VisitPlan>> fetchAndStoreVisitPlans({
-    required String userCode,
     required String password,
-    required String deviceID,
   }) async {
-    final url = Uri.parse("$baseUrl/GetVisitPlan");
+    final user = SessionManager.currentUser;
 
+    if (user == null) {
+      print("❌ No user session found");
+      return [];
+    }
+
+    final url = Uri.parse("${baseUrl}GetVisitPlan");
 
     final body = jsonEncode({
-    "UserCode": userCode,
-    "Password": password,
-    "DeviceID": deviceID,
+      "UserCode": user.userCode,
+      "Password": password,
+      "DeviceID": user.deviceID,
     });
 
     try {
-    final response = await http
-        .post(
-    url,
-    headers: {"Content-Type": "application/json"},
-    body: body,
-    )
-        .timeout(const Duration(seconds: 15));
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
 
-    print("VisitPlan Status: ${response.statusCode}");
-    print("VisitPlan Body: ${response.body}");
+      print("📡 VISIT PLAN RESPONSE: ${response.body}");
 
-    if (response.statusCode == 200) {
-    final Map<String, dynamic> result = jsonDecode(response.body);
+      if (response.statusCode == 200) {
+        final result = jsonDecode(response.body);
 
-    if (result['success'] == true && result['data'] != null) {
-    final List<VisitPlan> list = (result['data'] as List)
-        .map((e) => VisitPlan.fromJson(e))
-        .toList();
+        if (result['success'] == true && result['data'] is List) {
+          final List<VisitPlan> list =
+          (result['data'] as List)
+              .map((e) => VisitPlan.fromJson(e))
+              .toList();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-    "visit_plans",
-    jsonEncode(list.map((e) => e.toJson()).toList()),
-    );
+          final prefs = await SharedPreferences.getInstance();
 
-    return list;
-    }
-    }
+          await prefs.setString(
+            "visit_plans",
+            jsonEncode(list.map((e) => e.toJson()).toList()),
+          );
 
-    return [];
+          return list;
+        }
+      }
+
+      return [];
     } catch (e) {
-    print("Error fetching Visit Plan: $e");
-    return [];
+      print("❌ Error fetching Visit Plan: $e");
+      return [];
     }
-
-
   }
 
-  /// Get local data
+  /// =======================
+  /// GET LOCAL
+  /// =======================
   static Future<List<VisitPlan>> getLocalVisitPlans() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = prefs.getString("visit_plans");
 
+    if (jsonStr == null) return [];
 
-    if (jsonStr != null) {
     final List<dynamic> jsonList = jsonDecode(jsonStr);
+
     return jsonList.map((e) => VisitPlan.fromJson(e)).toList();
-    }
-
-    return [];
-
-
   }
 
-  /// Clear local storage
+  /// =======================
+  /// CLEAR LOCAL
+  /// =======================
   static Future<void> clearLocalVisitPlans() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("visit_plans");

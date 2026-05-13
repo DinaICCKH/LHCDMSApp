@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'login_api.dart';
 
 /// =======================
-/// CUSTOMER MODEL CLASS
+/// CUSTOMER MODEL
 /// =======================
 class Customer {
   final int code;
@@ -44,64 +45,100 @@ class Customer {
     required this.creditLimit,
   });
 
-  factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-    code: json['code'],
-    message: json['message'],
-    cardCode: json['cardCode'],
-    cardName: json['cardName'],
-    cardFName: json['cardFName'],
-    groupCode: json['groupCode'],
-    groupName: json['groupName'],
-    id: json['id'],
-    tel1: json['tel1'],
-    tel2: json['tel2'],
-    mobile: json['mobile'],
-    contactPerson: json['contactPerson'],
-    contactPersonName: json['contactPersonName'],
-    fullAddress: json['fullAddress'],
-    paymentTerm: json['paymenterm'] ?? "",
-    priceList: json['priceList'] ?? "",
-    creditLimit: (json['creditLimit'] as num).toDouble(),
-  );
+  /// SAFE PARSERS
+  static String _str(dynamic v) => v?.toString() ?? '';
+  static int _int(dynamic v) => (v is num) ? v.toInt() : int.tryParse(v?.toString() ?? '') ?? 0;
+  static double _double(dynamic v) => (v is num)
+      ? v.toDouble()
+      : double.tryParse(v?.toString() ?? '') ?? 0.0;
 
-  Map<String, dynamic> toJson() => {
-    "code": code,
-    "message": message,
-    "cardCode": cardCode,
-    "cardName": cardName,
-    "cardFName": cardFName,
-    "groupCode": groupCode,
-    "groupName": groupName,
-    "id": id,
-    "tel1": tel1,
-    "tel2": tel2,
-    "mobile": mobile,
-    "contactPerson": contactPerson,
-    "contactPersonName": contactPersonName,
-    "fullAddress": fullAddress,
-    "paymenterm": paymentTerm,
-    "priceList": priceList,
-    "creditLimit": creditLimit,
-  };
+  /// =======================
+  /// FROM JSON (FIXED FOR YOUR API)
+  /// =======================
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    return Customer(
+      code: _int(json['Code']),
+      message: _str(json['Message']),
+
+      cardCode: _str(json['CardCode']),
+      cardName: _str(json['CardName']),
+      cardFName: _str(json['CardFName']),
+
+      groupCode: _int(json['GroupCode']),
+      groupName: _str(json['GroupName']),
+
+      id: _str(json['ID']),
+      tel1: _str(json['Tel1']),
+      tel2: _str(json['Tel2']),
+      mobile: _str(json['Mobile']),
+
+      contactPerson: _str(json['ContactPerson']),
+      contactPersonName: _str(json['ContactPersonName']),
+
+      fullAddress: _str(json['FullAddress']),
+
+      /// IMPORTANT: API spelling is "Paymenterm"
+      paymentTerm: _str(json['Paymenterm']),
+
+      priceList: _str(json['PriceList']),
+
+      creditLimit: _double(json['CreditLimit']),
+    );
+  }
+
+  /// =======================
+  /// TO JSON (STORE LOCALLY)
+  /// =======================
+  Map<String, dynamic> toJson() {
+    return {
+      "Code": code,
+      "Message": message,
+      "CardCode": cardCode,
+      "CardName": cardName,
+      "CardFName": cardFName,
+      "GroupCode": groupCode,
+      "GroupName": groupName,
+      "ID": id,
+      "Tel1": tel1,
+      "Tel2": tel2,
+      "Mobile": mobile,
+      "ContactPerson": contactPerson,
+      "ContactPersonName": contactPersonName,
+      "FullAddress": fullAddress,
+      "Paymenterm": paymentTerm,
+      "PriceList": priceList,
+      "CreditLimit": creditLimit,
+    };
+  }
 }
 
 /// =======================
-/// CUSTOMER API & LOCAL STORAGE
+/// CUSTOMER API
+/// (MATCH ITEM STYLE: SessionManager)
 /// =======================
 class CustomerApi {
-  static const String baseUrl = "http://192.168.88.254:7242/api/DMS";
+  static const String baseUrl =
+      "https://www.icckh.com/dms/dev/lhc/api/DMS_/";
 
-  /// Get customers from API and store to SharedPreferences
+  /// =======================
+  /// FETCH + STORE
+  /// =======================
   static Future<List<Customer>> fetchAndStoreCustomers({
-    required String userCode,
     required String password,
-    required String deviceID,
   }) async {
-    final url = Uri.parse("$baseUrl/GetCustomer");
+    final user = SessionManager.currentUser;
+
+    if (user == null) {
+      print("❌ No user session found.");
+      return [];
+    }
+
+    final url = Uri.parse("${baseUrl}GetCustomer");
+
     final body = jsonEncode({
-      "UserCode": userCode,
+      "UserCode": user.userCode,
       "Password": password,
-      "DeviceID": deviceID,
+      "DeviceID": user.deviceID,
     });
 
     try {
@@ -111,39 +148,55 @@ class CustomerApi {
         body: body,
       );
 
+      print("📡 CUSTOMER RESPONSE: ${response.body}");
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> result = jsonDecode(response.body);
-        if (result['success'] == true && result['data'] != null) {
-          final List<Customer> customers = (result['data'] as List)
+        final result = jsonDecode(response.body);
+
+        if (result['success'] == true && result['data'] is List) {
+          final List<Customer> customers =
+          (result['data'] as List)
               .map((e) => Customer.fromJson(e))
               .toList();
 
           final prefs = await SharedPreferences.getInstance();
+
           await prefs.setString(
-              "customers", jsonEncode(customers.map((e) => e.toJson()).toList()));
+            "customers",
+            jsonEncode(customers.map((e) => e.toJson()).toList()),
+          );
 
           return customers;
         }
       }
+
       return [];
     } catch (e) {
-      print("Error fetching customers: $e");
+      print("❌ Error fetching customers: $e");
       return [];
     }
   }
 
-  /// Retrieve customers from local storage
+  /// =======================
+  /// GET LOCAL
+  /// =======================
   static Future<List<Customer>> getLocalCustomers() async {
     final prefs = await SharedPreferences.getInstance();
+
     final jsonStr = prefs.getString("customers");
-    if (jsonStr != null) {
-      final List<dynamic> jsonList = jsonDecode(jsonStr);
-      return jsonList.map((e) => Customer.fromJson(e)).toList();
-    }
-    return [];
+
+    if (jsonStr == null) return [];
+
+    final List<dynamic> jsonList = jsonDecode(jsonStr);
+
+    return jsonList
+        .map((e) => Customer.fromJson(e))
+        .toList();
   }
 
-  /// Clear stored customers
+  /// =======================
+  /// CLEAR LOCAL
+  /// =======================
   static Future<void> clearLocalCustomers() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("customers");
