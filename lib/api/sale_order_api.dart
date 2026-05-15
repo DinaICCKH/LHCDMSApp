@@ -4,14 +4,12 @@ import 'package:http/http.dart' as http;
 
 // ─────────────────────────────────────────────────────────────────
 // SALE ORDER API SERVICE
-// Endpoint: POST https://www.icckh.com/dms/dev/lhc/api/Marketing/AddOrUpdateSO
 // ─────────────────────────────────────────────────────────────────
 
 class SaleOrderApi {
   static const String _baseUrl =
       "https://www.icckh.com/dms/dev/lhc/api/Marketing/AddOrUpdateSO";
 
-  // ── Main method to submit a Sale Order ──────────────────────────
   static Future<SaleOrderResult> submitOrder({
     required SaleOrderPayload payload,
   }) async {
@@ -29,8 +27,10 @@ class SaleOrderApi {
       )
           .timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
+      if (response.statusCode == 200 ||
+          response.statusCode == 201) {
         final decoded = jsonDecode(response.body);
+
         return SaleOrderResult.success(decoded);
       } else {
         return SaleOrderResult.failure(
@@ -39,14 +39,20 @@ class SaleOrderApi {
       }
     } on SocketException {
       return SaleOrderResult.failure(
-        "No internet connection. Order saved locally.",
+        "No internet connection.",
       );
     } on HttpException catch (e) {
-      return SaleOrderResult.failure("HTTP error: $e");
+      return SaleOrderResult.failure(
+        "HTTP error: $e",
+      );
     } on FormatException catch (e) {
-      return SaleOrderResult.failure("Response format error: $e");
+      return SaleOrderResult.failure(
+        "Response format error: $e",
+      );
     } catch (e) {
-      return SaleOrderResult.failure("Unexpected error: $e");
+      return SaleOrderResult.failure(
+        "Unexpected error: $e",
+      );
     }
   }
 }
@@ -54,6 +60,7 @@ class SaleOrderApi {
 // ─────────────────────────────────────────────────────────────────
 // RESULT WRAPPER
 // ─────────────────────────────────────────────────────────────────
+
 class SaleOrderResult {
   final bool isSuccess;
   final String? message;
@@ -66,15 +73,22 @@ class SaleOrderResult {
   });
 
   factory SaleOrderResult.success(dynamic data) =>
-      SaleOrderResult._(isSuccess: true, data: data);
+      SaleOrderResult._(
+        isSuccess: true,
+        data: data,
+      );
 
   factory SaleOrderResult.failure(String message) =>
-      SaleOrderResult._(isSuccess: false, message: message);
+      SaleOrderResult._(
+        isSuccess: false,
+        message: message,
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────
 // PAYLOAD MODEL
 // ─────────────────────────────────────────────────────────────────
+
 class SaleOrderPayload {
   final String mode;
   final int docEntry;
@@ -120,6 +134,7 @@ class SaleOrderPayload {
   final String nextApprover;
   final String appStatus;
   final String dataSource;
+
   final List<SaleOrderLine> so1Lines;
 
   SaleOrderPayload({
@@ -220,8 +235,9 @@ class SaleOrderPayload {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// LINE ITEM MODEL
+// SALE ORDER LINE MODEL
 // ─────────────────────────────────────────────────────────────────
+
 class SaleOrderLine {
   final int docEntry;
   final int lineNum;
@@ -237,6 +253,27 @@ class SaleOrderLine {
   final double lineTotal;
   final String whsCode;
   final String ocrCode;
+
+  // ✅ PROMOTION FIELDS
+  final double uInvDiscountPer;
+  final double uInvDicountAmt;
+
+  final double uInOther9;
+  final double uMnOther9;
+  final String uRemarkOther9;
+
+  final double uInOther10;
+  final double uMnOther10;
+  final String uRemarkOther10;
+
+  final double uInOther11;
+  final double uMnOther11;
+  final String uRemarkOther11;
+
+  final double uInOther12;
+  final double uMnOther12;
+  final String uRemarkOther12;
+
   final String uInvCurrency;
   final double uMnCurrency;
 
@@ -255,6 +292,27 @@ class SaleOrderLine {
     required this.lineTotal,
     this.whsCode = "WH001",
     this.ocrCode = "",
+
+    // ✅ PROMOTION VALUES
+    this.uInvDiscountPer = 0,
+    this.uInvDicountAmt = 0,
+
+    this.uInOther9 = 0,
+    this.uMnOther9 = 0,
+    this.uRemarkOther9 = "",
+
+    this.uInOther10 = 0,
+    this.uMnOther10 = 0,
+    this.uRemarkOther10 = "",
+
+    this.uInOther11 = 0,
+    this.uMnOther11 = 0,
+    this.uRemarkOther11 = "",
+
+    this.uInOther12 = 0,
+    this.uMnOther12 = 0,
+    this.uRemarkOther12 = "",
+
     this.uInvCurrency = "USD",
     this.uMnCurrency = 0,
   });
@@ -274,25 +332,38 @@ class SaleOrderLine {
     "LineTotal": lineTotal,
     "WhsCode": whsCode,
     "OcrCode": ocrCode,
+
+    // ─────────────────────────────
+    // DEFAULT SAP FIELDS
+    // ─────────────────────────────
+
     "OcrCode2": null,
     "OcrCode3": null,
     "OcrCode4": null,
+
     "U_InvPaymentAmt": 0,
     "U_PaymentPer": 0,
     "U_PaymentAmt": 0,
-    "U_InvDiscountPer": 0,
-    "U_InvDicountAmt": 0,
+
+    // ✅ PROMOTION DISCOUNT
+    "U_InvDiscountPer": uInvDiscountPer,
+    "U_InvDicountAmt": uInvDicountAmt,
+
     "U_DiscPer": 0,
     "U_DiscAmt": 0,
+
     "U_InvVoucherAmt": 0,
     "U_Voucher": "",
     "U_VoucherNo": "",
+
     "U_InvTransportAmt": 0,
     "U_TransportationPercent": 0,
     "U_TransportationAmt": 0,
+
     "U_InvSpecialAmt": 0,
     "U_specialPricePercent": 0,
     "U_specialPriceAmt": 0,
+
     "U_PolicyDisc": 0,
     "U_InvTransportPer": 0,
     "U_InvSpecialPer": 0,
@@ -300,42 +371,60 @@ class SaleOrderLine {
     "U_InvPaymentPer": 0,
     "U_AddOnStatus": "",
     "U_InvTransprtFAmt": 0,
+
     "U_InvCurrency": uInvCurrency,
     "U_MnCurrency": uMnCurrency,
+
     "U_RemarkCurrency": "",
+
     "U_InvFactory": "",
     "U_MnFactory": 0,
     "U_RemarkFactory": "",
+
     "U_InvTransportB7": 0,
     "U_MnTransportB7": 0,
     "U_RemarkTransportB7": "",
+
     "U_InvTransportB8": 0,
     "U_MnTransportB8": 0,
     "U_RemarkTransportB8": "",
+
     "U_InvEmployeeCom": 0,
     "U_MnEmployeeCom": 0,
     "U_RemarkEmployeeCom": "",
+
     "U_InvDepotCom": 0,
     "U_MnDepotCom": 0,
     "U_RemarkDepotCom": "",
+
     "U_InvQuarterCom": 0,
     "U_MnQuarterCom": 0,
     "U_RemarkQuarterCom": "",
+
     "U_InvMarketing": 0,
     "U_MnMarketing": 0,
     "U_RemarkMarketing": "",
-    "U_InOther9": 0,
-    "U_MnOther9": 0,
-    "U_RemarkOther9": "",
-    "U_InOther10": 0,
-    "U_MnOther10": 0,
-    "U_RemarkOther10": "",
-    "U_InOther11": 0,
-    "U_MnOther11": 0,
-    "U_RemarkOther11": "",
-    "U_InOther12": 0,
-    "U_MnOther12": 0,
-    "U_RemarkOther12": "",
+
+    // ✅ OTHER9
+    "U_InOther9": uInOther9,
+    "U_MnOther9": uMnOther9,
+    "U_RemarkOther9": uRemarkOther9,
+
+    // ✅ OTHER10
+    "U_InOther10": uInOther10,
+    "U_MnOther10": uMnOther10,
+    "U_RemarkOther10": uRemarkOther10,
+
+    // ✅ OTHER11
+    "U_InOther11": uInOther11,
+    "U_MnOther11": uMnOther11,
+    "U_RemarkOther11": uRemarkOther11,
+
+    // ✅ OTHER12
+    "U_InOther12": uInOther12,
+    "U_MnOther12": uMnOther12,
+    "U_RemarkOther12": uRemarkOther12,
+
     "U_SpecialTrAmt": 0,
     "U_SpecialTrnPer": 0,
     "U_QtyFactory": 0,

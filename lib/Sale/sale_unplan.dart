@@ -5,6 +5,7 @@ import 'package:kuberadmsdn/api/save_itemlogpromotion_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../api/get_customer_api.dart' as api;
 import '../api/get_item_api.dart' as itemApi;
+import '../api/get_promotionresult_api.dart';
 import 'sale_unplan_controller.dart';
 import 'models/sale_order_model.dart';
 
@@ -54,6 +55,7 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   final TextEditingController searchItemCtrl        = TextEditingController();
   final TextEditingController _discountPercentCtrl  = TextEditingController();
   final TextEditingController _discountAmountCtrl   = TextEditingController();
+  final Map<String, bool> _expandedMap = {};
 
   // ── Discount ──────────────────────────────────────────────────────────────
   double discountPercent    = 0.0;
@@ -73,6 +75,8 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   double get subTotal => controller.selectedItems
       .fold(0.0, (sum, i) => sum + i.price * i.qty);
   double get docTotal => subTotal - discountAmount;
+
+
 
   // ─────────────────────────────────────────────────────
   // LIFECYCLE
@@ -98,6 +102,34 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     _discountPercentCtrl.dispose();
     _discountAmountCtrl.dispose();
     super.dispose();
+  }
+
+
+  void _updateItemQty(SaleItem item, int change) {
+    setState(() {
+      final index = controller.selectedItems
+          .indexWhere((e) => e.itemCode == item.itemCode);
+
+      if (index == -1) return;
+
+      final current = controller.selectedItems[index];
+      final newQty = current.qty + change;
+
+      if (newQty <= 0) {
+        controller.selectedItems.removeAt(index);
+      } else {
+        controller.selectedItems[index] = SaleItem(
+          itemCode: current.itemCode,
+          name: current.name,
+          price: current.price,
+          qty: newQty,
+          uom: current.uom,
+          itemGroupName: current.itemGroupName,
+          subGroupDes: current.subGroupDes,
+          subGroup2Des: current.subGroup2Des,
+        );
+      }
+    });
   }
 
   // ─────────────────────────────────────────────────────
@@ -988,13 +1020,10 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
               ]),
               const SizedBox(height: 8),
 
-              // ── Delivery Time ─────────────────────────────────────────────
               _buildTapCard(
                 icon: Icons.schedule,
                 label: "Delivery Time",
-                value: deliveryTime == null
-                    ? "Tap to set time"
-                    : _formatTime(deliveryTime!),
+                value: _formatTime(deliveryTime ?? TimeOfDay.now()),
                 onTap: pickDeliveryTime,
                 hasValue: deliveryTime != null,
               ),
@@ -1191,60 +1220,283 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     );
   }
 
-  // ─── Summary item row ──────────────────────────────────────────────────────
+// ─── Summary item row ──────────────────────────────────────────────────────
+
   Widget _buildSummaryItem(SaleItem item) {
-    final isFree = item.price == 0;
+    final isLocked = isPromotionLocked;
+
+    final itemKey = item.itemCode;
+    final isExpanded = _expandedMap[itemKey] ?? false;
+
+    // ─────────────────────────────
+    // ONLY ALLOW PROMO DISPLAY AFTER RUN
+    // ─────────────────────────────
+    bool hasPromotion =
+        isPromotionLocked &&
+            (item.uInvDiscountAmt > 0 ||
+                item.uSpecialPriceAmt > 0 ||
+                item.uInvVoucherAmt > 0 ||
+                item.uMnOther9 > 0 ||
+                item.uMnOther10 > 0 ||
+                item.uMnOther11 > 0 ||
+                item.uMnOther12 > 0);
+
+    String? promoLabel;
+    double discountAmt = 0;
+    double discountPer = 0;
+
+    if (hasPromotion) {
+      if (item.uInvDiscountAmt > 0) {
+        promoLabel = "DISCOUNT";
+        discountAmt = item.uInvDiscountAmt;
+        discountPer = item.uInvDiscountPer;
+      } else if (item.uSpecialPriceAmt > 0) {
+        promoLabel = "SPECIAL PRICE";
+        discountAmt = item.uSpecialPriceAmt;
+        discountPer = item.uSpecialPricePercent;
+      } else if (item.uInvVoucherAmt > 0) {
+        promoLabel = "VOUCHER";
+        discountAmt = item.uInvVoucherAmt;
+      } else if (item.uMnOther9 > 0) {
+        promoLabel =
+        item.uRemarkOther9.isNotEmpty ? item.uRemarkOther9 : "PROMO 9";
+        discountAmt = item.uMnOther9;
+      } else if (item.uMnOther10 > 0) {
+        promoLabel =
+        item.uRemarkOther10.isNotEmpty ? item.uRemarkOther10 : "PROMO 10";
+        discountAmt = item.uMnOther10;
+      } else if (item.uMnOther11 > 0) {
+        promoLabel =
+        item.uRemarkOther11.isNotEmpty ? item.uRemarkOther11 : "PROMO 11";
+        discountAmt = item.uMnOther11;
+      } else if (item.uMnOther12 > 0) {
+        promoLabel =
+        item.uRemarkOther12.isNotEmpty ? item.uRemarkOther12 : "PROMO 12";
+        discountAmt = item.uMnOther12;
+      }
+    }
+
+    final grossTotal = item.qty * item.price;
+    final netTotal = hasPromotion ? grossTotal - discountAmt : grossTotal;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 5),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isFree ? _kSuccess.withOpacity(0.06) : _kCard,
+        color: _kCard,
         borderRadius: BorderRadius.circular(10),
-        border: isFree
-            ? Border.all(color: _kSuccess.withOpacity(0.3))
-            : null,
       ),
-      child: Row(children: [
-        if (isFree)
-          Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-                color: _kSuccess, borderRadius: BorderRadius.circular(4)),
-            child: const Text("FREE",
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold)),
-          ),
-        Expanded(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // ─────────────────────────────
+              // PROMO BADGE (ONLY AFTER PROMO)
+              // ─────────────────────────────
+              if (hasPromotion)
+                Container(
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade600,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    promoLabel ?? "",
                     style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w500)),
-                Text("${item.itemCode}  x${item.qty}  ${item.uom}",
-                    style:
-                    const TextStyle(fontSize: 10, color: Colors.grey)),
-              ]),
-        ),
-        Text(
-          isFree
-              ? "FREE"
-              : "\$${(item.qty * item.price).toStringAsFixed(2)}",
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isFree ? _kSuccess : Colors.black87),
-        ),
-      ]),
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+              // ─────────────────────────────
+              // ITEM INFO
+              // ─────────────────────────────
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "${item.itemCode}  |  ${item.uom}",
+                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "Unit Price: \$${item.price.toStringAsFixed(2)}",
+                      style:
+                      const TextStyle(fontSize: 10, color: Colors.black54),
+                    ),
+
+                    // ─────────────────────────────
+                    // EXPAND DETAILS
+                    // ─────────────────────────────
+                    if (hasPromotion && isExpanded) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        "Type: $promoLabel",
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.deepOrange,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (discountPer > 0)
+                        Text(
+                          "Discount %: ${discountPer.toStringAsFixed(2)}%",
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      if (discountAmt > 0)
+                        Text(
+                          "Discount Amt: \$${discountAmt.toStringAsFixed(2)}",
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // ─────────────────────────────
+              // SMALL QTY (LOCK ONLY AFTER PROMO)
+              // ─────────────────────────────
+              Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: isLocked
+                          ? null
+                          : () {
+                        if (item.qty <= 1) return;
+                        _updateItemQty(item, -1);
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.remove, size: 12),
+                      ),
+                    ),
+
+                    SizedBox(
+                      width: 32,
+                      child: TextFormField(
+                        initialValue: item.qty.toString(),
+                        enabled: !isLocked,
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (value) {
+                          final qty = int.tryParse(value);
+                          if (qty == null || qty <= 0) return;
+
+                          setState(() {
+                            final index = controller.selectedItems.indexWhere(
+                                    (e) => e.itemCode == item.itemCode);
+
+                            if (index == -1) return;
+
+                            controller.selectedItems[index] =
+                                controller.selectedItems[index].copyWith(
+                                  qty: qty,
+                                );
+                          });
+                        },
+                      ),
+                    ),
+
+                    InkWell(
+                      onTap: isLocked
+                          ? null
+                          : () => _updateItemQty(item, 1),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.add, size: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // ─────────────────────────────
+              // TOTAL (CROSS + FINAL ONLY AFTER PROMO)
+              // ─────────────────────────────
+              GestureDetector(
+                onTap: hasPromotion
+                    ? () {
+                  setState(() {
+                    _expandedMap[itemKey] =
+                    !(_expandedMap[itemKey] ?? false);
+                  });
+                }
+                    : null,
+                child: SizedBox(
+                  width: 85,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (hasPromotion)
+                        Text(
+                          "\$${grossTotal.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                      Text(
+                        "\$${netTotal.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (hasPromotion)
+                        Icon(
+                          isExpanded
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          size: 14,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
-
   // ─────────────────────────────────────────────────────
   // ORDER SUMMARY SECTION
   // ─────────────────────────────────────────────────────
@@ -1771,60 +2023,78 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     }
   }
 
-// ─────────────────────────────────────────────────────
-// SAVE promotion log
-// ─────────────────────────────────────────────────────
   Future<void> saveItemLog() async {
-    if (selectedCustomer == null ||
-        controller.selectedItems.isEmpty) {
+    if (selectedCustomer == null || controller.selectedItems.isEmpty) {
       return;
     }
 
-    // 🔒 BLOCK IF ALREADY RUNNING OR LOCKED
     if (isRunningPromotion || isPromotionLocked) return;
 
     setState(() => isRunningPromotion = true);
 
     try {
       final now = DateTime.now();
+      final logId = "PROMO${now.millisecondsSinceEpoch}";
 
-      final logId =
-          "PROMO${now.year}${now.month}${now.day}${now.hour}${now.minute}${now.second}";
+      final logs = controller.selectedItems.asMap().entries.map((entry) {
+        final item = entry.value;
 
-      final logs = controller.selectedItems
-          .asMap()
-          .entries
-          .map(
-            (entry) => UserLogItemPayload(
+        return UserLogItemPayload(
           id: logId,
           lineNum: entry.key + 1,
           cardCode: selectedCustomer!.cardCode,
-          itemCode: entry.value.itemCode,
-          qty: entry.value.qty.toDouble(),
+          itemCode: item.itemCode,
+          qty: item.qty.toDouble(),
           discountPer: discountPercent,
-          uom: entry.value.uom,
-          price: entry.value.price.toDouble(),
-          lineTotal:
-          (entry.value.qty * entry.value.price).toDouble(),
+          uom: item.uom,
+          price: item.price.toDouble(),
+          lineTotal: (item.qty * item.price).toDouble(),
           reason: "PROMO",
           docDate: now.toIso8601String().split("T").first,
           paymentMethod: paymentMethodValue,
-        ),
-      )
-          .toList();
+        );
+      }).toList();
 
       debugPrint("🔥 PROMOTION REQUEST:");
       debugPrint(jsonEncode(logs.map((e) => e.toJson()).toList()));
 
-      final result = await UserLogItemApi.submitLogs(
-        logs: logs,
-      );
+      final result = await UserLogItemApi.submitLogs(logs: logs);
 
-      debugPrint("✅ RESPONSE:");
-      debugPrint(result.data?.toString() ?? result.message ?? "NULL");
+      debugPrint("✅ SAVE RESPONSE: ${result.message}");
 
-      // 🔒 LOCK AFTER SUCCESS (ONE-TIME ONLY)
-      isPromotionLocked = true;
+      if (!result.isSuccess) {
+        debugPrint("❌ Save failed → skip promotion");
+        return;
+      }
+
+      // ─────────────────────────────
+      // LOCK AFTER SUCCESS
+      // ─────────────────────────────
+      setState(() {
+        isPromotionLocked = true;
+      });
+
+      final promoResult =
+      await PromotionService.getPromotionResult(logId);
+
+      debugPrint("🎯 PROMOTION RESULT:");
+      debugPrint("Total: ${promoResult.total}");
+      debugPrint("Items: ${promoResult.data.length}");
+
+      // ─────────────────────────────
+      // APPLY PROMOTION (THIS IS KEY)
+      // ─────────────────────────────
+      applyPromotionResult(promoResult.data);
+
+      // ─────────────────────────────
+      // OPTIONAL UI CLEAN UPDATE
+      // ─────────────────────────────
+      if (mounted) {
+        setState(() {
+          // forces full rebuild AFTER promotion applied
+          isPromotionLocked = true;
+        });
+      }
 
     } catch (e) {
       debugPrint("❌ ERROR: $e");
@@ -1833,5 +2103,135 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
         setState(() => isRunningPromotion = false);
       }
     }
+  }
+
+  void applyPromotionResult(List<PromotionResult> promoList) {
+    for (final promo in promoList) {
+      final index = controller.selectedItems.indexWhere(
+            (e) => e.itemCode == promo.itemCode,
+      );
+
+      if (index == -1) continue;
+
+      final item = controller.selectedItems[index];
+
+      double discountPer = item.uInvDiscountPer;
+      double discountAmt = item.uInvDiscountAmt;
+
+      double other9Per = item.uInOther9;
+      double other9Amt = item.uMnOther9;
+
+      double other10Per = item.uInOther10;
+      double other10Amt = item.uMnOther10;
+
+      double other11Per = item.uInOther11;
+      double other11Amt = item.uMnOther11;
+
+      double other12Per = item.uInOther12;
+      double other12Amt = item.uMnOther12;
+
+      double specialAmt = item.uSpecialPriceAmt;
+      double specialPer = item.uSpecialPricePercent;
+
+      double voucherAmt = item.uInvVoucherAmt;
+
+      String remark9 = item.uRemarkOther9;
+      String remark10 = item.uRemarkOther10;
+      String remark11 = item.uRemarkOther11;
+      String remark12 = item.uRemarkOther12;
+
+      switch (promo.promotionType) {
+        case "Discount":
+          discountPer = promo.match;
+          discountAmt = promo.match1;
+          break;
+
+        case "Other9":
+          other9Per = promo.match;
+          other9Amt = promo.match1;
+          remark9 = promo.remark ?? "";
+          break;
+
+        case "Other10":
+          other10Per = promo.match;
+          other10Amt = promo.match1;
+          remark10 = promo.remark ?? "";
+          break;
+
+        case "Other11":
+          other11Per = promo.match;
+          other11Amt = promo.match1;
+          remark11 = promo.remark ?? "";
+          break;
+
+        case "Other12":
+          other12Per = promo.match;
+          other12Amt = promo.match1;
+          remark12 = promo.remark ?? "";
+          break;
+
+        case "SpecialPrice":
+          specialPer = promo.match;
+          specialAmt = promo.match1;
+          break;
+
+        case "Voucher":
+          voucherAmt = promo.match1;
+          break;
+      }
+
+      final grossTotal = item.qty * item.price;
+
+      final totalDiscount =
+          discountAmt +
+              other9Amt +
+              other10Amt +
+              other11Amt +
+              other12Amt +
+              specialAmt +
+              voucherAmt;
+
+      final netLineTotal = grossTotal - totalDiscount;
+
+      controller.selectedItems[index] = SaleItem(
+        itemCode: item.itemCode,
+        name: item.name,
+        price: item.price,
+        qty: item.qty,
+        uom: item.uom,
+        itemGroupName: item.itemGroupName,
+        subGroupDes: item.subGroupDes,
+        subGroup2Des: item.subGroup2Des,
+
+        // PROMO FIELDS
+        uInvDiscountPer: discountPer,
+        uInvDiscountAmt: discountAmt,
+
+        uSpecialPriceAmt: specialAmt,
+        uSpecialPricePercent: specialPer,
+
+        uInvVoucherAmt: voucherAmt,
+
+        uInOther9: other9Per,
+        uMnOther9: other9Amt,
+        uRemarkOther9: remark9,
+
+        uInOther10: other10Per,
+        uMnOther10: other10Amt,
+        uRemarkOther10: remark10,
+
+        uInOther11: other11Per,
+        uMnOther11: other11Amt,
+        uRemarkOther11: remark11,
+
+        uInOther12: other12Per,
+        uMnOther12: other12Amt,
+        uRemarkOther12: remark12,
+
+        lineTotal: netLineTotal,
+      );
+    }
+
+    if (mounted) setState(() {});
   }
 }
