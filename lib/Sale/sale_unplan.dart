@@ -115,6 +115,7 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
       final current = controller.selectedItems[index];
       final newQty = current.qty + change;
 
+      // REMOVE ITEM IF QTY <= 0
       if (newQty <= 0) {
         controller.selectedItems.removeAt(index);
       } else {
@@ -127,6 +128,27 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           itemGroupName: current.itemGroupName,
           subGroupDes: current.subGroupDes,
           subGroup2Des: current.subGroup2Des,
+
+          // ─────────────────────────────
+          // PROMOTION FIELDS
+          // ─────────────────────────────
+          uInvDiscountAmt: current.uInvDiscountAmt,
+          uInvDiscountPer: current.uInvDiscountPer,
+
+          uSpecialPriceAmt: current.uSpecialPriceAmt,
+          uSpecialPricePercent: current.uSpecialPricePercent,
+
+          uInvVoucherAmt: current.uInvVoucherAmt,
+
+          uMnOther9: current.uMnOther9,
+          uMnOther10: current.uMnOther10,
+          uMnOther11: current.uMnOther11,
+          uMnOther12: current.uMnOther12,
+
+          uRemarkOther9: current.uRemarkOther9,
+          uRemarkOther10: current.uRemarkOther10,
+          uRemarkOther11: current.uRemarkOther11,
+          uRemarkOther12: current.uRemarkOther12,
         );
       }
     });
@@ -1220,16 +1242,21 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     );
   }
 
-// ─── Summary item row ──────────────────────────────────────────────────────
-
+// ─── SUMMARY ITEM ROW ──────────────────────────────────────
   Widget _buildSummaryItem(SaleItem item) {
     final isLocked = isPromotionLocked;
 
-    final itemKey = item.itemCode;
+    final itemKey = "${item.itemCode}_${item.qty}_${item.lineTotal}";
     final isExpanded = _expandedMap[itemKey] ?? false;
 
     // ─────────────────────────────
-    // ONLY ALLOW PROMO DISPLAY AFTER RUN
+    // FREE ITEM CHECK
+    // ─────────────────────────────
+    final isFreeItem =
+        item.uRemarkOther12 == "FREE_ITEM";
+
+    // ─────────────────────────────
+    // PROMOTION CHECK
     // ─────────────────────────────
     bool hasPromotion =
         isPromotionLocked &&
@@ -1239,71 +1266,143 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
                 item.uMnOther9 > 0 ||
                 item.uMnOther10 > 0 ||
                 item.uMnOther11 > 0 ||
-                item.uMnOther12 > 0);
+                item.uMnOther12 > 0 ||
+                isFreeItem);
 
     String? promoLabel;
     double discountAmt = 0;
     double discountPer = 0;
 
+    // ─────────────────────────────
+    // PROMOTION LABEL
+    // ─────────────────────────────
     if (hasPromotion) {
-      if (item.uInvDiscountAmt > 0) {
+      // FREE ITEM
+      if (isFreeItem) {
+        promoLabel = "FREE";
+        discountPer = 100;
+        discountAmt = item.price * item.qty;
+      }
+
+      // NORMAL DISCOUNT
+      else if (item.uInvDiscountAmt > 0) {
         promoLabel = "DISCOUNT";
         discountAmt = item.uInvDiscountAmt;
         discountPer = item.uInvDiscountPer;
-      } else if (item.uSpecialPriceAmt > 0) {
+      }
+
+      // SPECIAL PRICE
+      else if (item.uSpecialPriceAmt > 0) {
         promoLabel = "SPECIAL PRICE";
         discountAmt = item.uSpecialPriceAmt;
         discountPer = item.uSpecialPricePercent;
-      } else if (item.uInvVoucherAmt > 0) {
+      }
+
+      // VOUCHER
+      else if (item.uInvVoucherAmt > 0) {
         promoLabel = "VOUCHER";
         discountAmt = item.uInvVoucherAmt;
-      } else if (item.uMnOther9 > 0) {
+      }
+
+      // OTHER 9
+      else if (item.uMnOther9 > 0) {
         promoLabel =
-        item.uRemarkOther9.isNotEmpty ? item.uRemarkOther9 : "PROMO 9";
+        item.uRemarkOther9.isNotEmpty
+            ? item.uRemarkOther9
+            : "PROMO 9";
+
         discountAmt = item.uMnOther9;
-      } else if (item.uMnOther10 > 0) {
+      }
+
+      // OTHER 10
+      else if (item.uMnOther10 > 0) {
         promoLabel =
-        item.uRemarkOther10.isNotEmpty ? item.uRemarkOther10 : "PROMO 10";
+        item.uRemarkOther10.isNotEmpty
+            ? item.uRemarkOther10
+            : "PROMO 10";
+
         discountAmt = item.uMnOther10;
-      } else if (item.uMnOther11 > 0) {
+      }
+
+      // OTHER 11
+      else if (item.uMnOther11 > 0) {
         promoLabel =
-        item.uRemarkOther11.isNotEmpty ? item.uRemarkOther11 : "PROMO 11";
+        item.uRemarkOther11.isNotEmpty
+            ? item.uRemarkOther11
+            : "PROMO 11";
+
         discountAmt = item.uMnOther11;
-      } else if (item.uMnOther12 > 0) {
+      }
+
+      // OTHER 12
+      else if (item.uMnOther12 > 0) {
         promoLabel =
-        item.uRemarkOther12.isNotEmpty ? item.uRemarkOther12 : "PROMO 12";
+        item.uRemarkOther12.isNotEmpty
+            ? item.uRemarkOther12
+            : "PROMO 12";
+
         discountAmt = item.uMnOther12;
       }
     }
 
     final grossTotal = item.qty * item.price;
-    final netTotal = hasPromotion ? grossTotal - discountAmt : grossTotal;
+
+    final netTotal = isFreeItem
+        ? 0
+        : hasPromotion
+        ? grossTotal - discountAmt
+        : grossTotal;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _kCard,
-        borderRadius: BorderRadius.circular(10),
+
+      padding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
       ),
+
+      decoration: BoxDecoration(
+        color: isFreeItem
+            ? Colors.green.shade50
+            : _kCard,
+
+        borderRadius: BorderRadius.circular(10),
+
+        border: isFreeItem
+            ? Border.all(
+          color: Colors.green.shade300,
+        )
+            : null,
+      ),
+
       child: Column(
         children: [
           Row(
             children: [
               // ─────────────────────────────
-              // PROMO BADGE (ONLY AFTER PROMO)
+              // PROMO BADGE
               // ─────────────────────────────
               if (hasPromotion)
                 Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade600,
-                    borderRadius: BorderRadius.circular(4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
                   ),
+
+                  margin: const EdgeInsets.only(right: 6),
+
+                  decoration: BoxDecoration(
+                    color: isFreeItem
+                        ? Colors.green
+                        : Colors.orange.shade600,
+
+                    borderRadius:
+                    BorderRadius.circular(4),
+                  ),
+
                   child: Text(
                     promoLabel ?? "",
+
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 9,
@@ -1317,51 +1416,103 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
               // ─────────────────────────────
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment:
+                  CrossAxisAlignment.start,
                   children: [
                     Text(
                       item.name,
+
                       maxLines: 1,
+
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
+
+                        color: isFreeItem
+                            ? Colors.green.shade800
+                            : Colors.black,
                       ),
                     ),
+
                     const SizedBox(height: 2),
+
                     Text(
                       "${item.itemCode}  |  ${item.uom}",
-                      style: const TextStyle(fontSize: 10, color: Colors.grey),
+
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey,
+                      ),
                     ),
+
                     const SizedBox(height: 3),
+
                     Text(
                       "Unit Price: \$${item.price.toStringAsFixed(2)}",
-                      style:
-                      const TextStyle(fontSize: 10, color: Colors.black54),
+
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
                     ),
+
+                    // ─────────────────────────────
+                    // FREE ITEM LABEL
+                    // ─────────────────────────────
+                    if (isFreeItem)
+                      Padding(
+                        padding:
+                        const EdgeInsets.only(top: 4),
+                        child: Text(
+                          "FREE ITEM PROMOTION",
+
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.green.shade700,
+                            fontWeight:
+                            FontWeight.bold,
+                          ),
+                        ),
+                      ),
 
                     // ─────────────────────────────
                     // EXPAND DETAILS
                     // ─────────────────────────────
-                    if (hasPromotion && isExpanded) ...[
+                    if (hasPromotion &&
+                        isExpanded) ...[
                       const SizedBox(height: 6),
+
                       Text(
                         "Type: $promoLabel",
+
                         style: const TextStyle(
                           fontSize: 10,
                           color: Colors.deepOrange,
-                          fontWeight: FontWeight.w600,
+                          fontWeight:
+                          FontWeight.w600,
                         ),
                       ),
+
                       if (discountPer > 0)
                         Text(
                           "Discount %: ${discountPer.toStringAsFixed(2)}%",
-                          style: const TextStyle(fontSize: 10),
+
+                          style:
+                          const TextStyle(
+                            fontSize: 10,
+                          ),
                         ),
+
                       if (discountAmt > 0)
                         Text(
                           "Discount Amt: \$${discountAmt.toStringAsFixed(2)}",
-                          style: const TextStyle(fontSize: 10),
+
+                          style:
+                          const TextStyle(
+                            fontSize: 10,
+                          ),
                         ),
                     ],
                   ],
@@ -1369,76 +1520,155 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
               ),
 
               // ─────────────────────────────
-              // SMALL QTY (LOCK ONLY AFTER PROMO)
+              // QTY CONTROL
               // ─────────────────────────────
               Container(
                 height: 28,
+
                 decoration: BoxDecoration(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.grey.shade300),
+
+                  borderRadius:
+                  BorderRadius.circular(6),
+
+                  border: Border.all(
+                    color: Colors.grey.shade300,
+                  ),
                 ),
+
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // MINUS
                     InkWell(
                       onTap: isLocked
                           ? null
                           : () {
-                        if (item.qty <= 1) return;
-                        _updateItemQty(item, -1);
+                        if (item.qty <= 1) {
+                          return;
+                        }
+
+                        _updateItemQty(
+                            item, -1);
                       },
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(Icons.remove, size: 12),
+
+                      child: Padding(
+                        padding:
+                        const EdgeInsets.all(4),
+
+                        child: Icon(
+                          Icons.remove,
+
+                          size: 12,
+
+                          color: isLocked
+                              ? Colors.grey
+                              : Colors.black,
+                        ),
                       ),
                     ),
 
+                    // QTY INPUT
                     SizedBox(
                       width: 32,
+
                       child: TextFormField(
-                        initialValue: item.qty.toString(),
+                        key: ValueKey(
+                          "${item.itemCode}_${item.qty}_${item.lineTotal}",
+                        ),
+
+                        initialValue:
+                        item.qty.toString(),
+
                         enabled: !isLocked,
-                        textAlign: TextAlign.center,
-                        keyboardType: TextInputType.number,
+
+                        textAlign:
+                        TextAlign.center,
+
+                        keyboardType:
+                        TextInputType.number,
+
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
+                          FilteringTextInputFormatter
+                              .digitsOnly,
                         ],
-                        style: const TextStyle(
+
+                        style:
+                        const TextStyle(
                           fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontWeight:
+                          FontWeight.w600,
                         ),
-                        decoration: const InputDecoration(
+
+                        decoration:
+                        const InputDecoration(
                           isDense: true,
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
+                          border:
+                          InputBorder.none,
+                          contentPadding:
+                          EdgeInsets.zero,
                         ),
+
                         onChanged: (value) {
-                          final qty = int.tryParse(value);
-                          if (qty == null || qty <= 0) return;
+                          final qty =
+                          int.tryParse(value);
+
+                          if (qty == null ||
+                              qty <= 0) {
+                            return;
+                          }
 
                           setState(() {
-                            final index = controller.selectedItems.indexWhere(
-                                    (e) => e.itemCode == item.itemCode);
+                            final index =
+                            controller
+                                .selectedItems
+                                .indexWhere(
+                                  (e) =>
+                              e.itemCode ==
+                                  item.itemCode &&
+                                  e.lineTotal ==
+                                      item
+                                          .lineTotal,
+                            );
 
-                            if (index == -1) return;
+                            if (index == -1) {
+                              return;
+                            }
 
-                            controller.selectedItems[index] =
-                                controller.selectedItems[index].copyWith(
-                                  qty: qty,
-                                );
+                            controller
+                                .selectedItems[
+                            index] = controller
+                                .selectedItems[
+                            index]
+                                .copyWith(
+                              qty: qty,
+                            );
                           });
                         },
                       ),
                     ),
 
+                    // PLUS
                     InkWell(
                       onTap: isLocked
                           ? null
-                          : () => _updateItemQty(item, 1),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(Icons.add, size: 12),
+                          : () =>
+                          _updateItemQty(
+                              item, 1),
+
+                      child: Padding(
+                        padding:
+                        const EdgeInsets.all(4),
+
+                        child: Icon(
+                          Icons.add,
+
+                          size: 12,
+
+                          color: isLocked
+                              ? Colors.grey
+                              : Colors.black,
+                        ),
                       ),
                     ),
                   ],
@@ -1448,43 +1678,64 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
               const SizedBox(width: 10),
 
               // ─────────────────────────────
-              // TOTAL (CROSS + FINAL ONLY AFTER PROMO)
+              // TOTAL
               // ─────────────────────────────
               GestureDetector(
                 onTap: hasPromotion
                     ? () {
                   setState(() {
                     _expandedMap[itemKey] =
-                    !(_expandedMap[itemKey] ?? false);
+                    !(_expandedMap[
+                    itemKey] ??
+                        false);
                   });
                 }
                     : null,
+
                 child: SizedBox(
                   width: 85,
+
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment:
+                    CrossAxisAlignment.end,
+
                     children: [
                       if (hasPromotion)
                         Text(
                           "\$${grossTotal.toStringAsFixed(2)}",
-                          style: const TextStyle(
+
+                          style:
+                          const TextStyle(
                             fontSize: 10,
                             color: Colors.grey,
-                            decoration: TextDecoration.lineThrough,
+                            decoration:
+                            TextDecoration
+                                .lineThrough,
                           ),
                         ),
+
                       Text(
-                        "\$${netTotal.toStringAsFixed(2)}",
-                        style: const TextStyle(
+                        isFreeItem
+                            ? "FREE"
+                            : "\$${netTotal.toStringAsFixed(2)}",
+
+                        style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontWeight:
+                          FontWeight.bold,
+
+                          color: isFreeItem
+                              ? Colors.green
+                              : Colors.black,
                         ),
                       ),
+
                       if (hasPromotion)
                         Icon(
                           isExpanded
                               ? Icons.expand_less
                               : Icons.expand_more,
+
                           size: 14,
                         ),
                     ],
@@ -2115,6 +2366,62 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
 
       final item = controller.selectedItems[index];
 
+      // ─────────────────────────────
+      // FREE QUANTITY PROMOTION
+      // ─────────────────────────────
+      if (promo.promotionType == "FreeQuantity") {
+        final freeQty = promo.match1.toInt();
+
+        // AVOID DUPLICATE FREE ITEM
+        final alreadyExists = controller.selectedItems.any(
+              (e) =>
+          e.itemCode == promo.itemCode &&
+              e.uRemarkOther12 == "FREE_ITEM",
+        );
+
+        if (alreadyExists) continue;
+
+        controller.selectedItems.insert(
+          index + 1,
+          SaleItem(
+            itemCode: item.itemCode,
+
+            // OPTIONAL DISPLAY NAME
+            name: "${item.name} (FREE)",
+
+            price: item.price,
+
+            // FREE QTY
+            qty: freeQty,
+
+            uom: item.uom,
+
+            itemGroupName: item.itemGroupName,
+            subGroupDes: item.subGroupDes,
+            subGroup2Des: item.subGroup2Des,
+
+            // ─────────────────────────────
+            // 100% DISCOUNT
+            // ─────────────────────────────
+            uInvDiscountPer: 100,
+
+            // FULL AMOUNT DISCOUNT
+            uInvDiscountAmt: item.price * freeQty,
+
+            // FINAL TOTAL = 0
+            lineTotal: 0,
+
+            // MARK FREE ITEM
+            uRemarkOther12: "FREE_ITEM",
+          ),
+        );
+
+        continue;
+      }
+
+      // ─────────────────────────────
+      // NORMAL PROMOTION
+      // ─────────────────────────────
       double discountPer = item.uInvDiscountPer;
       double discountAmt = item.uInvDiscountAmt;
 
@@ -2203,7 +2510,9 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
         subGroupDes: item.subGroupDes,
         subGroup2Des: item.subGroup2Des,
 
-        // PROMO FIELDS
+        // ─────────────────────────────
+        // PROMOTION FIELDS
+        // ─────────────────────────────
         uInvDiscountPer: discountPer,
         uInvDiscountAmt: discountAmt,
 
@@ -2228,10 +2537,13 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
         uMnOther12: other12Amt,
         uRemarkOther12: remark12,
 
+        // FINAL LINE TOTAL
         lineTotal: netLineTotal,
       );
     }
 
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+    }
   }
 }
