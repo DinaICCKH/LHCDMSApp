@@ -72,31 +72,16 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   String userName = "Loading...";
   String companyName = "";
-  Timer? sessionTimer;
-  final int sessionTimeoutMinutes = 10;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
-    _startSessionTimer();
   }
 
   @override
   void dispose() {
-    sessionTimer?.cancel();
     super.dispose();
-  }
-
-  void _startSessionTimer() {
-    sessionTimer?.cancel();
-    sessionTimer = Timer(Duration(minutes: sessionTimeoutMinutes), () {
-      _logout(autoLogout: true);
-    });
-  }
-
-  void _resetSessionTimer() {
-    _startSessionTimer();
   }
 
   Future<void> _loadUser() async {
@@ -185,7 +170,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     if (shouldLogout) {
-      sessionTimer?.cancel();
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       if (!mounted) return;
@@ -202,57 +186,52 @@ class _DashboardPageState extends State<DashboardPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final isSmallScreen = screenHeight < 680;
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: _resetSessionTimer,
-      onPanDown: (_) => _resetSessionTimer(),
-      child: Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
-            ),
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
           ),
-          child: SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildHeader(context),
 
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 6),
-                  child: _buildNotificationBar(
-                      "2 Orders Pending Approval, 5 Customers Not Visited Today"),
-                ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 6),
+                child: _buildNotificationBar(
+                    "2 Orders Pending Approval, 5 Customers Not Visited Today"),
+              ),
 
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(
-                        16, 4, 16, isSmallScreen ? 4 : 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _sectionTitle("Reports"),
-                        const SizedBox(height: 6),
-                        ReportSection(isSmallScreen: isSmallScreen),
-                        const SizedBox(height: 12),
-                        _sectionTitle("Main Menu"),
-                        const SizedBox(height: 6),
-                        MenuSection(
-                          isSmallScreen: isSmallScreen,
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
+              Expanded(
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                      16, 4, 16, isSmallScreen ? 4 : 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionTitle("Reports"),
+                      const SizedBox(height: 6),
+                      ReportSection(isSmallScreen: isSmallScreen),
+                      const SizedBox(height: 12),
+                      _sectionTitle("Main Menu"),
+                      const SizedBox(height: 6),
+                      MenuSection(
+                        isSmallScreen: isSmallScreen,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                   ),
                 ),
+              ),
 
-                const AppInfoRow(),
-              ],
-            ),
+              const AppInfoRow(),
+            ],
           ),
         ),
       ),
@@ -573,7 +552,7 @@ class MenuSection extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         _FullWidthCard(
-          title: 'Statistics',   // <-- add this
+          title: 'Statistics',
           icon: Icons.bar_chart_rounded,
           onTap: () {},
         ),

@@ -49,6 +49,7 @@ class Item {
   final int defEntry;
   final double altQty;
   final double sellingPrice;
+  final String dflwhs;
 
   Item({
     required this.code,
@@ -93,9 +94,9 @@ class Item {
     required this.defEntry,
     required this.altQty,
     required this.sellingPrice,
+    required this.dflwhs,
   });
 
-  /// ---------------- FROM JSON (FIXED SAFETY) ----------------
   factory Item.fromJson(Map<String, dynamic> json) {
     double toDouble(dynamic value) {
       if (value == null) return 0.0;
@@ -156,10 +157,10 @@ class Item {
       defEntry: toInt(json['DefEntry']),
       altQty: toDouble(json['AltQty']),
       sellingPrice: toDouble(json['SellingPrice']),
+      dflwhs: toStr(json['dflwhs']),
     );
   }
 
-  /// ---------------- TO JSON ----------------
   Map<String, dynamic> toJson() {
     return {
       "Code": code,
@@ -204,6 +205,7 @@ class Item {
       "DefEntry": defEntry,
       "AltQty": altQty,
       "SellingPrice": sellingPrice,
+      "dflwhs": dflwhs,
     };
   }
 }
@@ -212,8 +214,7 @@ class Item {
 /// ITEM API & LOCAL STORAGE
 /// =======================
 class ItemApi {
-  static const String baseUrl =
-      "https://www.icckh.com/dms/dev/lhc/api/DMS_/";
+  static const String baseUrl = "https://www.icckh.com/dms/dev/lhc/api/DMS_/";
 
   /// ---------------- FETCH & STORE ITEMS ----------------
   static Future<List<Item>> fetchAndStoreItems({
@@ -221,7 +222,6 @@ class ItemApi {
     required String password,
     required String deviceID,
   }) async {
-
     final user = SessionManager.currentUser;
 
     if (user == null) {
@@ -230,7 +230,6 @@ class ItemApi {
     }
 
     final url = Uri.parse("${baseUrl}GetItems");
-
     final body = jsonEncode({
       "UserCode": user.userCode,
       "Password": password,
@@ -244,29 +243,40 @@ class ItemApi {
         body: body,
       );
 
-      print("📡 RESPONSE: ${response.body}");
+      print("📡 [Network Response Status]: ${response.statusCode}");
 
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
 
         if (result['success'] == true && result['data'] is List) {
-          final List<Item> items = (result['data'] as List)
-              .map((e) => Item.fromJson(e))
-              .toList();
+          final List<dynamic> rawList = result['data'];
+
+          // 1. Print loaded network data count
+          print("📥 [Data Loaded]: Successfully received ${rawList.length} items from the API.");
+
+          final List<Item> items = rawList.map((e) => Item.fromJson(e)).toList();
 
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(
-            "items",
-            jsonEncode(items.map((e) => e.toJson()).toList()),
-          );
+          final String encodedItems = jsonEncode(items.map((e) => e.toJson()).toList());
+
+          // 2. Save data locally
+          await prefs.setString("items", encodedItems);
+
+          // 3. Print verification of saved data
+          print("💾 [Data Saved]: Saved ${items.length} items locally to SharedPreferences.");
+          print("🔍 [Preview Saved Data]: $encodedItems"); // Warning: Can be large in logs
 
           return items;
+        } else {
+          print("⚠️ [API Warning]: Response success is false or data is not a list. Response: ${response.body}");
         }
+      } else {
+        print("❌ [Server Error]: HTTP status code ${response.statusCode}");
       }
 
       return [];
     } catch (e) {
-      print("Error fetching items: $e");
+      print("❌ Error fetching items: $e");
       return [];
     }
   }
@@ -278,9 +288,15 @@ class ItemApi {
 
     if (jsonStr != null) {
       final List<dynamic> jsonList = jsonDecode(jsonStr);
+
+      // 1. Print loaded local data count
+      print("📖 [Local Data Read]: Found ${jsonList.length} items in SharedPreferences.");
+      print("🔍 [Preview Local Data]: $jsonStr");
+
       return jsonList.map((e) => Item.fromJson(e)).toList();
     }
 
+    print("ℹ️ [Local Data Read]: No items found in SharedPreferences storage.");
     return [];
   }
 
@@ -288,5 +304,6 @@ class ItemApi {
   static Future<void> clearLocalItems() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("items");
+    print("🗑️ [Local Data Cleared]: Successfully deleted 'items' from SharedPreferences.");
   }
 }

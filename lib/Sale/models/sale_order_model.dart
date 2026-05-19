@@ -13,172 +13,135 @@ class Customer {
 }
 
 class SaleItem {
-  // ─────────────────────────────
-  // BASIC ITEM
-  // ─────────────────────────────
+  // ───────────────── BASIC ITEM ─────────────────
   String itemCode;
   String name;
-  int qty;
+  double qty;
   double price;
   double lineTotal;
   String uom;
 
-  // ─────────────────────────────
-  // ITEM INFO
-  // ─────────────────────────────
+  // ───────────────── WAREHOUSE ─────────────────
+  String whsCode;
+
+  // ───────────────── COST CENTER ─────────────────
+  String ocrCode;
+  String ocrCode2;
+  String ocrCode3;
+  String ocrCode4;
+
+  // ───────────────── ITEM INFO ─────────────────
   String? itemGroupName;
   String? subGroupDes;
   String? subGroup2Des;
   String? manufacturerDes;
 
-  // ─────────────────────────────
-  // NORMAL DISCOUNT
-  // ─────────────────────────────
+  // ───────────────── NORMAL DISCOUNT ─────────────────
   double discPrcnt;
   double disAmt;
 
-  // ─────────────────────────────
-  // PROMOTION DISCOUNT
-  // ─────────────────────────────
-  double uInvDiscountPer;
-  double uInvDiscountAmt;
+  double uDiscPer;
+  double uDiscAmt;
 
-  // ─────────────────────────────
-  // OTHER 9
-  // ─────────────────────────────
+  // ───────────────── PROMO DISCOUNT ─────────────────
+  double uInvDiscountPer;
+  double uInvDicountAmt;
+
+  // ───────────────── OTHER 9 ─────────────────
   double uInOther9;
   double uMnOther9;
   String uRemarkOther9;
 
-  // ─────────────────────────────
-  // OTHER 10
-  // ─────────────────────────────
+  // ───────────────── OTHER 10 ─────────────────
   double uInOther10;
   double uMnOther10;
   String uRemarkOther10;
 
-  // ─────────────────────────────
-  // OTHER 11
-  // ─────────────────────────────
+  // ───────────────── OTHER 11 ─────────────────
   double uInOther11;
   double uMnOther11;
   String uRemarkOther11;
 
-  // ─────────────────────────────
-  // OTHER 12
-  // ─────────────────────────────
+  // ───────────────── OTHER 12 ─────────────────
   double uInOther12;
   double uMnOther12;
   String uRemarkOther12;
 
-  // ─────────────────────────────
-  // PAYMENT
-  // ─────────────────────────────
+  // ───────────────── PAYMENT ─────────────────
   double uInvPaymentAmt;
   double uPaymentPer;
   double uPaymentAmt;
   double uInvPaymentPer;
 
-  // ─────────────────────────────
-  // VOUCHER
-  // ─────────────────────────────
+  // ───────────────── VOUCHER ─────────────────
   double uInvVoucherAmt;
   String uVoucher;
   String uVoucherNo;
 
-  // ─────────────────────────────
-  // TRANSPORT
-  // ─────────────────────────────
+  // ───────────────── TRANSPORT ─────────────────
   double uInvTransportAmt;
   double uTransportationPercent;
   double uTransportationAmt;
 
-  // ─────────────────────────────
-  // SPECIAL PRICE
-  // ─────────────────────────────
+  // ───────────────── SPECIAL PRICE ─────────────────
   double uInvSpecialAmt;
   double uSpecialPricePercent;
   double uSpecialPriceAmt;
 
-  // ─────────────────────────────
-  // POLICY
-  // ─────────────────────────────
+  // ───────────────── POLICY ─────────────────
   double uPolicyDisc;
   double uInvTransportPer;
   double uInvSpecialPer;
   double uInvSpecialFreeAmt;
 
-  // ─────────────────────────────
-  // EXTRA
-  // ─────────────────────────────
+  // ───────────────── EXTRA ─────────────────
   String uAddOnStatus;
   double uInvTransprtFAmt;
 
-  // ─────────────────────────────
-  // CURRENCY
-  // ─────────────────────────────
+  // ───────────────── CURRENCY ─────────────────
   String uInvCurrency;
   double uMnCurrency;
   String uRemarkCurrency;
 
-  // ─────────────────────────────
-  // FACTORY
-  // ─────────────────────────────
+  // ───────────────── FACTORY ─────────────────
   String uInvFactory;
   double uMnFactory;
   String uRemarkFactory;
 
-  // ─────────────────────────────
-  // TRANSPORT B7
-  // ─────────────────────────────
+  // ───────────────── TRANSPORT B7 ─────────────────
   double uInvTransportB7;
   double uMnTransportB7;
   String uRemarkTransportB7;
 
-  // ─────────────────────────────
-  // TRANSPORT B8
-  // ─────────────────────────────
+  // ───────────────── TRANSPORT B8 ─────────────────
   double uInvTransportB8;
   double uMnTransportB8;
   String uRemarkTransportB8;
 
-  // ─────────────────────────────
-  // EMPLOYEE COM
-  // ─────────────────────────────
+  // ───────────────── EMPLOYEE COM ─────────────────
   double uInvEmployeeCom;
   double uMnEmployeeCom;
   String uRemarkEmployeeCom;
 
-  // ─────────────────────────────
-  // DEPOT COM
-  // ─────────────────────────────
+  // ───────────────── DEPOT COM ─────────────────
   double uInvDepotCom;
   double uMnDepotCom;
   String uRemarkDepotCom;
 
-  // ─────────────────────────────
-  // QUARTER COM
-  // ─────────────────────────────
+  // ───────────────── QUARTER COM ─────────────────
   double uInvQuarterCom;
   double uMnQuarterCom;
   String uRemarkQuarterCom;
 
-  // ─────────────────────────────
-  // MARKETING
-  // ─────────────────────────────
+  // ───────────────── MARKETING ─────────────────
   double uInvMarketing;
   double uMnMarketing;
   String uRemarkMarketing;
 
-  // ─────────────────────────────
-  // SPECIAL TRANSPORT
-  // ─────────────────────────────
+  // ───────────────── SPECIAL TRANSPORT ─────────────────
   double uSpecialTrAmt;
   double uSpecialTrnPer;
 
-  // ─────────────────────────────
-  // FACTORY QTY
-  // ─────────────────────────────
   double uQtyFactory;
 
   SaleItem({
@@ -189,6 +152,13 @@ class SaleItem {
     this.lineTotal = 0,
     this.uom = "PCS",
 
+    this.whsCode = "WH001",
+
+    this.ocrCode = "",
+    this.ocrCode2 = "",
+    this.ocrCode3 = "",
+    this.ocrCode4 = "",
+
     this.itemGroupName,
     this.subGroupDes,
     this.subGroup2Des,
@@ -196,9 +166,11 @@ class SaleItem {
 
     this.discPrcnt = 0,
     this.disAmt = 0,
+    this.uDiscPer = 0,
+    this.uDiscAmt = 0,
 
     this.uInvDiscountPer = 0,
-    this.uInvDiscountAmt = 0,
+    this.uInvDicountAmt = 0,
 
     this.uInOther9 = 0,
     this.uMnOther9 = 0,
@@ -279,40 +251,37 @@ class SaleItem {
     this.uQtyFactory = 0,
   });
 
-  // ─────────────────────────────
-  // SUBTOTAL
-  // ─────────────────────────────
+  // ───────────────── CALCULATIONS ─────────────────
+
   double get subTotal => qty * price;
 
-  // ─────────────────────────────
-  // TOTAL DISCOUNT
-  // ─────────────────────────────
   double get totalDiscount =>
       disAmt +
-          uInvDiscountAmt +
+          uInvDicountAmt +
           uMnOther9 +
           uMnOther10 +
           uMnOther11 +
           uMnOther12;
 
-  // ─────────────────────────────
-  // FINAL TOTAL
-  // ─────────────────────────────
   double get total => subTotal - totalDiscount;
 
-  // Optional: keep lineTotal always correct
   double get computedLineTotal => total;
 
+  // ───────────────── COPY WITH ─────────────────
+
   SaleItem copyWith({
-    int? qty,
+    double? qty,
     double? price,
     double? lineTotal,
 
     double? discPrcnt,
     double? disAmt,
 
+    double? uDiscPer,
+    double? uDiscAmt,
+
     double? uInvDiscountPer,
-    double? uInvDiscountAmt,
+    double? uInvDicountAmt,
 
     double? uInOther9,
     double? uMnOther9,
@@ -399,6 +368,11 @@ class SaleItem {
       price: price ?? this.price,
       lineTotal: lineTotal ?? this.lineTotal,
       uom: uom,
+      whsCode: whsCode,
+      ocrCode: ocrCode,
+      ocrCode2: ocrCode2,
+      ocrCode3: ocrCode3,
+      ocrCode4: ocrCode4,
 
       itemGroupName: itemGroupName,
       subGroupDes: subGroupDes,
@@ -408,8 +382,11 @@ class SaleItem {
       discPrcnt: discPrcnt ?? this.discPrcnt,
       disAmt: disAmt ?? this.disAmt,
 
+      uDiscPer: uDiscPer ?? this.uDiscPer,
+      uDiscAmt: uDiscAmt ?? this.uDiscAmt,
+
       uInvDiscountPer: uInvDiscountPer ?? this.uInvDiscountPer,
-      uInvDiscountAmt: uInvDiscountAmt ?? this.uInvDiscountAmt,
+      uInvDicountAmt: uInvDicountAmt ?? this.uInvDicountAmt,
 
       uInOther9: uInOther9 ?? this.uInOther9,
       uMnOther9: uMnOther9 ?? this.uMnOther9,

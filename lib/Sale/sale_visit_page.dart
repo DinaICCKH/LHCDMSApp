@@ -1093,7 +1093,7 @@ class _SaleFromVisitPageState extends State<SaleFromVisitPage>
                         ),
                       ),
                       onSubmitted: (v) {
-                        final qty = int.tryParse(v);
+                        final qty = double.tryParse(v);
                         if (qty != null && qty >= 1) {
                           setState(() => item.qty = qty);
                         }
@@ -2014,6 +2014,7 @@ class _SaleFromVisitPageState extends State<SaleFromVisitPage>
         final item = controller.selectedItems[i];
 
         so1Lines.add(SaleOrderLine(
+          docEntry: 1,
           lineNum: i,
           itemCode: item.itemCode,
           dscription: item.name,
