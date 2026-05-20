@@ -61,6 +61,8 @@ class SaleController extends ChangeNotifier {
 
     items = await itemApi.ItemApi.getLocalItems();
 
+
+
     isLoadingItem = false;
     notifyListeners();
   }
@@ -101,7 +103,11 @@ class SaleController extends ChangeNotifier {
         subGroupDes: item.subGroupDes,
         subGroup2Des: item.subGroup2Des,
         manufacturerDes: item.manufacturerDes,
-
+        whsCode: item.dflwhs,
+        ocrCode: item.ocrCode,
+        ocrCode2: item.ocrCode2,
+        ocrCode3: item.ocrCode3,
+        ocrCode4: item.ocrCode4,
       ));
     }
 
@@ -124,9 +130,15 @@ class SaleController extends ChangeNotifier {
         price: current.price,
         qty: newQty,
         uom: current.uom,
+        whsCode: current.whsCode,
+        ocrCode: current.ocrCode,
+        ocrCode2: current.ocrCode2,
+        ocrCode3: current.ocrCode3,
+        ocrCode4: current.ocrCode4,
         itemGroupName: current.itemGroupName,
         subGroupDes: current.subGroupDes,
         subGroup2Des: current.subGroup2Des,
+        
         uInvDicountAmt: current.uInvDicountAmt,
         uInvDiscountPer: current.uInvDiscountPer,
         uSpecialPriceAmt: current.uSpecialPriceAmt,
@@ -302,16 +314,23 @@ class SaleController extends ChangeNotifier {
           SaleItem(
             itemCode: item.itemCode,
             name: "${item.name} (FREE)",
-            price: item.price,
+            price: 0,
+            whsCode: item.whsCode,
+            ocrCode: item.ocrCode,
+            ocrCode2: item.ocrCode2,
+            ocrCode3: item.ocrCode3,
+            ocrCode4: item.ocrCode4,
             qty: freeQty,
             uom: item.uom,
             itemGroupName: item.itemGroupName,
             subGroupDes: item.subGroupDes,
             subGroup2Des: item.subGroup2Des,
-            uInvDiscountPer: 100,
-            uInvDicountAmt: item.price * freeQty,
+            uInvDiscountPer: 0,
+            uInvDicountAmt: 0,
+            disAmt: item.price * freeQty,
+            discPrcnt: 100,
             lineTotal: 0,
-            uRemarkOther12: "FREE_ITEM",
+            uRemarkOther12: "",
           ),
         );
         continue;
@@ -386,6 +405,11 @@ class SaleController extends ChangeNotifier {
         price: item.price,
         qty: item.qty,
         uom: item.uom,
+        whsCode: item.whsCode,
+        ocrCode: item.ocrCode,
+        ocrCode2: item.ocrCode2,
+        ocrCode3: item.ocrCode3,
+        ocrCode4: item.ocrCode4,
         itemGroupName: item.itemGroupName,
         subGroupDes: item.subGroupDes,
         subGroup2Des: item.subGroup2Des,
@@ -651,7 +675,7 @@ class SaleController extends ChangeNotifier {
     discountAmount = 0.0;
     ownerValue = "Admin";
     paymentMethodValue = "Invoice";
-    deliveryTime = null;
+    deliveryTime = TimeOfDay.now(); // 👈 NOT null
     isPromotionLocked = false;
     isRunningPromotion = false;
     isSaving = false;

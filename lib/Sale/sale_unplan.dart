@@ -54,16 +54,21 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   void initState() {
     super.initState();
 
-    // 1. Initialize Animation Controllers
+    late AnimationController _animController;
+    late Animation<double> _fadeAnim;
+
+// 1. Initialize Animation Controllers
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
     );
+
     _fadeAnim = CurvedAnimation(
-      parent: _animController!,
+      parent: _animController,
       curve: Curves.easeOut,
     );
-    _animController!.forward();
+
+    _animController.forward();
 
     // 2. Set Default Value for Delivery Time if it's currently null
     // This guarantees 'hasValue: true' is satisfied and saves correctly
@@ -104,25 +109,34 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   }
 
   void _showSnack(String msg, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: const TextStyle(fontSize: 12)),
-      backgroundColor: isError ? _kDanger : _kSuccess,
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      duration: const Duration(seconds: 2),
-    ));
+    if (!mounted || !context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: const TextStyle(fontSize: 12),
+        ),
+        backgroundColor: isError ? _kDanger : _kSuccess,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(10),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // ─────────────────────────────────────────────────────
   // DELIVERY TIME (UI concern — needs context)
   // ─────────────────────────────────────────────────────
   Future<void> pickDeliveryTime() async {
+    final initial = controller.deliveryTime ?? TimeOfDay.now();
+
     final picked = await showTimePicker(
       context: context,
-      // Safely uses the guaranteed state value managed by your controller
-      initialTime: controller.deliveryTime!,
+      initialTime: initial,
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(primary: _kPrimary),
@@ -178,7 +192,7 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           ),
         ),
         content: Text(
-          "Submit order for ${controller.selectedCustomer!.cardName}?",
+          "Submit order for ${controller.selectedCustomer?.cardName ?? "this customer"}?",
           style: const TextStyle(fontSize: 13),
         ),
         actions: [
@@ -529,50 +543,56 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           c.cardCode.toLowerCase().contains(q);
     }).toList();
 
-    return Column(children: [
-      if (controller.selectedCustomer != null) ...[
-        _buildSelectedCustomerCard(),
-        const SizedBox(height: 8),
-        _buildPrimaryButton(
-          label: "Proceed to Items",
-          icon: Icons.arrow_forward,
-          onPressed: () => _switchStep(2),
-        ),
-      ],
-      if (controller.selectedCustomer == null) ...[
-        _buildSearchField(
-          ctrl: searchCustomerCtrl,
-          hint: "Search by name or code...",
-          onChanged: (v) => setState(() => searchCustomer = v),
-          value: searchCustomer,
-          onClear: () {
-            searchCustomerCtrl.clear();
-            setState(() => searchCustomer = "");
-          },
-        ),
-        const SizedBox(height: 6),
-        Row(children: [
-          Text("${filtered.length} customer(s) found",
-              style:
-              const TextStyle(fontSize: 11, color: Colors.grey)),
-        ]),
-        const SizedBox(height: 6),
-        Expanded(
-          child: filtered.isEmpty
-              ? _buildEmptyState(
-              "No customers found", Icons.people_outline)
-              : ListView.builder(
-            itemCount: filtered.length,
-            itemBuilder: (_, index) =>
-                _buildCustomerCard(filtered[index]),
+    final customer = controller.selectedCustomer;
+
+    return Column(
+      children: [
+        if (customer != null) ...[
+          _buildSelectedCustomerCard(),
+          const SizedBox(height: 8),
+          _buildPrimaryButton(
+            label: "Proceed to Items",
+            icon: Icons.arrow_forward,
+            onPressed: () => _switchStep(2),
           ),
-        ),
+        ] else ...[
+          _buildSearchField(
+            ctrl: searchCustomerCtrl,
+            hint: "Search by name or code...",
+            onChanged: (v) => setState(() => searchCustomer = v),
+            value: searchCustomer,
+            onClear: () {
+              searchCustomerCtrl.clear();
+              setState(() => searchCustomer = "");
+            },
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "${filtered.length} customer(s) found",
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          const SizedBox(height: 6),
+          Expanded(
+            child: filtered.isEmpty
+                ? _buildEmptyState("No customers found", Icons.people_outline)
+                : ListView.builder(
+              itemCount: filtered.length,
+              itemBuilder: (_, index) =>
+                  _buildCustomerCard(filtered[index]),
+            ),
+          ),
+        ],
       ],
-    ]);
+    );
   }
 
   Widget _buildSelectedCustomerCard() {
-    final c = controller.selectedCustomer!;
+    final c = controller.selectedCustomer;
+
+    if (c == null) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -580,59 +600,72 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: _kPrimary.withOpacity(0.2)),
       ),
-      child: Row(children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: _kPrimary,
-            borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _kPrimary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.store, color: Colors.white, size: 18),
           ),
-          child:
-          const Icon(Icons.store, color: Colors.white, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(c.cardCode,
-                  style: const TextStyle(
-                      fontSize: 10, color: Colors.grey)),
-              Text(c.cardName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _kPrimary)),
-              const SizedBox(height: 2),
-              Text(c.fullAddress,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.black54)),
-              const SizedBox(height: 2),
-              Row(children: [
-                const Icon(Icons.phone, size: 11, color: Colors.grey),
-                const SizedBox(width: 4),
+          const SizedBox(width: 10),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  c.tel1.isEmpty ? "-" : c.tel1,
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.grey),
+                  c.cardCode,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
                 ),
-              ]),
-            ],
+                Text(
+                  c.cardName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _kPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  c.fullAddress,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+                const SizedBox(height: 2),
+
+                Row(
+                  children: [
+                    const Icon(Icons.phone, size: 11, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      c.tel1.isEmpty ? "-" : c.tel1,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-        TextButton(
-          onPressed: controller.clearCustomer,
-          child: const Text("Change",
+
+          TextButton(
+            onPressed: controller.clearCustomer,
+            child: const Text(
+              "Change",
               style: TextStyle(
-                  color: _kOrange,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600)),
-        ),
-      ]),
+                color: _kOrange,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1008,13 +1041,13 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
               if ((item.subGroupDes ?? "").isNotEmpty)
                 _detailChip(
                   Icons.label_outline,
-                  item.subGroupDes!,
+                  item.subGroupDes ?? "",
                 ),
 
               if ((item.manufacturerDes ?? "").isNotEmpty)
                 _detailChip(
                   Icons.factory,
-                  item.manufacturerDes!,
+                  item.manufacturerDes ?? "",
                 ),
             ],
           ),
@@ -1116,9 +1149,9 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           _buildTapCard(
             icon: Icons.schedule,
             label: "Delivery Time",
-            value: _formatTime(controller.deliveryTime!), // Safe bang operator because we guarantee a value
+            value: _formatTime(controller.deliveryTime ?? TimeOfDay.now()),
             onTap: pickDeliveryTime,
-            hasValue: true, // This forces the bold styling to show up immediately
+            hasValue: controller.deliveryTime != null,
           ),
           const SizedBox(height: 12),
 
@@ -1312,7 +1345,7 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     final itemKey  = "${item.itemCode}_${item.qty}_${item.lineTotal}";
     final isExpanded = _expandedMap[itemKey] ?? false;
 
-    final isFreeItem = item.uRemarkOther12 == "FREE_ITEM";
+    final isFreeItem = item.discPrcnt == 100;
 
     bool hasPromotion = controller.isPromotionLocked &&
         (item.uInvDicountAmt > 0 ||

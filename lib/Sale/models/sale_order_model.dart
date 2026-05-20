@@ -152,7 +152,7 @@ class SaleItem {
     this.lineTotal = 0,
     this.uom = "PCS",
 
-    this.whsCode = "WH001",
+    this.whsCode = "PNH-M-01",
 
     this.ocrCode = "",
     this.ocrCode2 = "",
