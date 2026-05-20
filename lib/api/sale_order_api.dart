@@ -337,11 +337,11 @@ class SaleOrderLine {
   final String uAddOnStatus;
   final double uInvTransprtFAmt;
 
-  final String uInvCurrency;
+  final double uInvCurrency;
   final double uMnCurrency;
   final String uRemarkCurrency;
 
-  final String uInvFactory;
+  final double uInvFactory;
   final double uMnFactory;
   final String uRemarkFactory;
 
@@ -402,7 +402,7 @@ class SaleOrderLine {
     this.disAmt = 0,
     required this.lineTotal,
     this.taxCode = "",
-    this.whsCode = "WH001",
+    this.whsCode = "PNH-C-01",
     this.ocrCode = "",
     this.ocrCode2,
     this.ocrCode3,
@@ -430,10 +430,10 @@ class SaleOrderLine {
     this.uInvPaymentPer = 0,
     this.uAddOnStatus = "",
     this.uInvTransprtFAmt = 0,
-    this.uInvCurrency = "USD",
+    this.uInvCurrency = 0,
     this.uMnCurrency = 0,
     this.uRemarkCurrency = "",
-    this.uInvFactory = "",
+    this.uInvFactory = 0,
     this.uMnFactory = 0,
     this.uRemarkFactory = "",
     this.uInvTransportB7 = 0,

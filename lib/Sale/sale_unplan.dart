@@ -43,9 +43,8 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   final TextEditingController _discountPercentCtrl = TextEditingController();
   final TextEditingController _discountAmountCtrl  = TextEditingController();
 
-  // ── Animation ─────────────────────────────────────────────────────────────
-  AnimationController? _animController;
-  Animation<double>?   _fadeAnim;
+  late AnimationController _animController;
+  late Animation<double> _fadeAnim;
 
   // ─────────────────────────────────────────────────────
   // LIFECYCLE
@@ -54,9 +53,6 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   void initState() {
     super.initState();
 
-    late AnimationController _animController;
-    late Animation<double> _fadeAnim;
-
 // 1. Initialize Animation Controllers
     _animController = AnimationController(
       vsync: this,
@@ -64,11 +60,11 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     );
 
     _fadeAnim = CurvedAnimation(
-      parent: _animController,
+      parent: _animController!,
       curve: Curves.easeOut,
     );
 
-    _animController.forward();
+    _animController!.forward();
 
     // 2. Set Default Value for Delivery Time if it's currently null
     // This guarantees 'hasValue: true' is satisfied and saves correctly
@@ -90,13 +86,15 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   @override
   void dispose() {
     controller.removeListener(_onControllerChange);
-    controller.dispose();
-    _animController?.dispose();
+
+    _animController.dispose();
+
     remarkController.dispose();
     searchCustomerCtrl.dispose();
     searchItemCtrl.dispose();
     _discountPercentCtrl.dispose();
     _discountAmountCtrl.dispose();
+
     super.dispose();
   }
 
@@ -104,8 +102,11 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   // UI HELPERS
   // ─────────────────────────────────────────────────────
   void _switchStep(int step) {
-    _animController?.forward(from: 0);
-    setState(() => _step = step);
+    _animController.forward(from: 0);
+
+    setState(() {
+      _step = step;
+    });
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -333,27 +334,37 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           _switchStep(_step - 1);
           return false;
         }
+
         if (controller.selectedItems.isNotEmpty) {
           return await _showExitDialog();
         }
+
         return true;
       },
       child: Scaffold(
         backgroundColor: _kBg,
         appBar: _buildAppBar(),
         body: SafeArea(
-          child: Column(children: [
-            _buildStepIndicator(),
-            Expanded(
-              child: FadeTransition(
-                opacity: _fadeAnim!,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                  child: _buildCurrentStep(),
+          child: Column(
+            children: [
+              _buildStepIndicator(),
+
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      12,
+                      10,
+                      12,
+                      10,
+                    ),
+                    child: _buildCurrentStep(),
+                  ),
                 ),
               ),
-            ),
-          ]),
+            ],
+          ),
         ),
       ),
     );

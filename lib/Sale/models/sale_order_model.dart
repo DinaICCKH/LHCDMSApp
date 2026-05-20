@@ -99,12 +99,12 @@ class SaleItem {
   double uInvTransprtFAmt;
 
   // ───────────────── CURRENCY ─────────────────
-  String uInvCurrency;
+  double uInvCurrency;
   double uMnCurrency;
   String uRemarkCurrency;
 
   // ───────────────── FACTORY ─────────────────
-  String uInvFactory;
+  double uInvFactory;
   double uMnFactory;
   String uRemarkFactory;
 
@@ -213,11 +213,11 @@ class SaleItem {
     this.uAddOnStatus = "",
     this.uInvTransprtFAmt = 0,
 
-    this.uInvCurrency = "USD",
+    this.uInvCurrency = 0,
     this.uMnCurrency = 0,
     this.uRemarkCurrency = "",
 
-    this.uInvFactory = "",
+    this.uInvFactory = 0,
     this.uMnFactory = 0,
     this.uRemarkFactory = "",
 
@@ -324,11 +324,11 @@ class SaleItem {
     String? uAddOnStatus,
     double? uInvTransprtFAmt,
 
-    String? uInvCurrency,
+    double? uInvCurrency,
     double? uMnCurrency,
     String? uRemarkCurrency,
 
-    String? uInvFactory,
+    double? uInvFactory,
     double? uMnFactory,
     String? uRemarkFactory,
 

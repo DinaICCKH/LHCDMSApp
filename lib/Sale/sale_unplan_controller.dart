@@ -138,20 +138,90 @@ class SaleController extends ChangeNotifier {
         itemGroupName: current.itemGroupName,
         subGroupDes: current.subGroupDes,
         subGroup2Des: current.subGroup2Des,
-        
-        uInvDicountAmt: current.uInvDicountAmt,
+
+        uDiscPer: current.uDiscPer,
+        uDiscAmt: current.uDiscAmt,
+
         uInvDiscountPer: current.uInvDiscountPer,
-        uSpecialPriceAmt: current.uSpecialPriceAmt,
-        uSpecialPricePercent: current.uSpecialPricePercent,
-        uInvVoucherAmt: current.uInvVoucherAmt,
+        uInvDicountAmt: current.uInvDicountAmt,
+
+        uInOther9: current.uInOther9,
         uMnOther9: current.uMnOther9,
-        uMnOther10: current.uMnOther10,
-        uMnOther11: current.uMnOther11,
-        uMnOther12: current.uMnOther12,
         uRemarkOther9: current.uRemarkOther9,
+
+        uInOther10: current.uInOther10,
+        uMnOther10: current.uMnOther10,
         uRemarkOther10: current.uRemarkOther10,
+
+        uInOther11: current.uInOther11,
+        uMnOther11: current.uMnOther11,
         uRemarkOther11: current.uRemarkOther11,
+
+        uInOther12: current.uInOther12,
+        uMnOther12: current.uMnOther12,
         uRemarkOther12: current.uRemarkOther12,
+
+        uInvPaymentAmt: current.uInvPaymentAmt,
+        uPaymentPer: current.uPaymentPer,
+        uPaymentAmt: current.uPaymentAmt,
+        uInvPaymentPer: current.uInvPaymentPer,
+
+        uInvVoucherAmt: current.uInvVoucherAmt,
+        uVoucher: current.uVoucher,
+        uVoucherNo: current.uVoucherNo,
+
+        uInvTransportAmt: current.uInvTransportAmt,
+        uTransportationPercent: current.uTransportationPercent,
+        uTransportationAmt: current.uTransportationAmt,
+
+        uInvSpecialAmt: current.uInvSpecialAmt,
+        uSpecialPricePercent: current.uSpecialPricePercent,
+        uSpecialPriceAmt: current.uSpecialPriceAmt,
+
+        uPolicyDisc: current.uPolicyDisc,
+        uInvTransportPer: current.uInvTransportPer,
+        uInvSpecialPer: current.uInvSpecialPer,
+        uInvSpecialFreeAmt: current.uInvSpecialFreeAmt,
+
+        uAddOnStatus: current.uAddOnStatus,
+        uInvTransprtFAmt: current.uInvTransprtFAmt,
+
+        uInvCurrency: current.uInvCurrency,
+        uMnCurrency: current.uMnCurrency,
+        uRemarkCurrency: current.uRemarkCurrency,
+
+        uInvFactory: current.uInvFactory,
+        uMnFactory: current.uMnFactory,
+        uRemarkFactory: current.uRemarkFactory,
+
+        uInvTransportB7: current.uInvTransportB7,
+        uMnTransportB7: current.uMnTransportB7,
+        uRemarkTransportB7: current.uRemarkTransportB7,
+
+        uInvTransportB8: current.uInvTransportB8,
+        uMnTransportB8: current.uMnTransportB8,
+        uRemarkTransportB8: current.uRemarkTransportB8,
+
+        uInvEmployeeCom: current.uInvEmployeeCom,
+        uMnEmployeeCom: current.uMnEmployeeCom,
+        uRemarkEmployeeCom: current.uRemarkEmployeeCom,
+
+        uInvDepotCom: current.uInvDepotCom,
+        uMnDepotCom: current.uMnDepotCom,
+        uRemarkDepotCom: current.uRemarkDepotCom,
+
+        uInvQuarterCom: current.uInvQuarterCom,
+        uMnQuarterCom: current.uMnQuarterCom,
+        uRemarkQuarterCom: current.uRemarkQuarterCom,
+
+        uInvMarketing: current.uInvMarketing,
+        uMnMarketing: current.uMnMarketing,
+        uRemarkMarketing: current.uRemarkMarketing,
+
+        uSpecialTrAmt: current.uSpecialTrAmt,
+        uSpecialTrnPer: current.uSpecialTrnPer,
+
+        uQtyFactory: current.uQtyFactory,
       );
     }
 
@@ -303,8 +373,7 @@ class SaleController extends ChangeNotifier {
         final freeQty = promo.match1.toDouble();
 
         final alreadyExists = selectedItems.any(
-              (e) =>
-          e.itemCode == promo.itemCode && e.uRemarkOther12 == "FREE_ITEM",
+              (e) => e.itemCode == promo.itemCode && e.uRemarkOther12 == "FREE_ITEM",
         );
 
         if (alreadyExists) continue;
@@ -330,75 +399,222 @@ class SaleController extends ChangeNotifier {
             disAmt: item.price * freeQty,
             discPrcnt: 100,
             lineTotal: 0,
-            uRemarkOther12: "",
+            uRemarkOther12: "FREE_ITEM",
           ),
         );
         continue;
       }
 
       // ── NORMAL PROMOTION ────────────────────────────────────────────────
-      double discountPer   = item.uInvDiscountPer;
-      double discountAmt   = item.uInvDicountAmt;
-      double other9Per     = item.uInOther9;
-      double other9Amt     = item.uMnOther9;
-      double other10Per    = item.uInOther10;
-      double other10Amt    = item.uMnOther10;
-      double other11Per    = item.uInOther11;
-      double other11Amt    = item.uMnOther11;
-      double other12Per    = item.uInOther12;
-      double other12Amt    = item.uMnOther12;
-      double specialAmt    = item.uSpecialPriceAmt;
-      double specialPer    = item.uSpecialPricePercent;
-      double voucherAmt    = item.uInvVoucherAmt;
-      String remark9       = item.uRemarkOther9;
-      String remark10      = item.uRemarkOther10;
-      String remark11      = item.uRemarkOther11;
-      String remark12      = item.uRemarkOther12;
+      double discountPer = item.uInvDiscountPer;
+      double discountAmt = item.uInvDicountAmt;
 
+      double invPaymentAmt = item.uInvPaymentAmt;
+      double paymentPer = item.uPaymentPer;
+      double paymentAmt = item.uPaymentAmt;
+      double invPaymentPer = item.uInvPaymentPer;
+
+      double InOther9 = item.uInOther9;
+      double MnOther9 = item.uMnOther9;
+      String remark9 = item.uRemarkOther9;
+
+      double InOther10 = item.uInOther10;
+      double MnOther10 = item.uMnOther10;
+      String remark10 = item.uRemarkOther10;
+
+      double InOther11 = item.uInOther11;
+      double MnOther11 = item.uMnOther11;
+      String remark11 = item.uRemarkOther11;
+
+      double InOther12 = item.uInOther12;
+      double MnOther12 = item.uMnOther12;
+      String remark12 = item.uRemarkOther12;
+
+      double specialAmt = item.uSpecialPriceAmt;
+      double specialPer = item.uSpecialPricePercent;
+
+      double voucherAmt = item.uInvVoucherAmt;
+
+      double transportAmt = item.uInvTransportAmt;
+      double transportPer = item.uInvTransportPer;
+      double transportFAmt = item.uInvTransprtFAmt;
+
+      double invSpecialAmt = item.uInvSpecialAmt;
+      double invSpecialPer = item.uInvSpecialPer;
+
+      double specialTrAmt = item.uSpecialTrAmt;
+      double specialTrnPer = item.uSpecialTrnPer;
+      double invSpecialFreeAmt = item.uInvSpecialFreeAmt;
+
+      double invCurrency = item.uInvCurrency;
+      double mnCurrency = item.uMnCurrency;
+      String remarkCurrency = item.uRemarkCurrency;
+
+      double invFactory = item.uInvFactory;
+      double mnFactory = item.uMnFactory;
+      String remarkFactory = item.uRemarkFactory;
+
+      double invTransportB7 = item.uInvTransportB7;
+      double mnTransportB7 = item.uMnTransportB7;
+      String remarkTransportB7 = item.uRemarkTransportB7;
+
+      double invTransportB8 = item.uInvTransportB8;
+      double mnTransportB8 = item.uMnTransportB8;
+      String remarkTransportB8 = item.uRemarkTransportB8;
+
+      double invEmployeeCom = item.uInvEmployeeCom;
+      double mnEmployeeCom = item.uMnEmployeeCom;
+      String remarkEmployeeCom = item.uRemarkEmployeeCom;
+
+      double invDepotCom = item.uInvDepotCom;
+      double mnDepotCom = item.uMnDepotCom;
+      String remarkDepotCom = item.uRemarkDepotCom;
+
+      double invQuarterCom = item.uInvQuarterCom;
+      double mnQuarterCom = item.uMnQuarterCom;
+      String remarkQuarterCom = item.uRemarkQuarterCom;
+
+      double invMarketing = item.uInvMarketing;
+      double mnMarketing = item.uMnMarketing;
+      String remarkMarketing = item.uRemarkMarketing;
+
+      // ── Apply Promotion ────────────────────────────────────────────────
       switch (promo.promotionType) {
         case "Discount":
           discountPer = promo.match;
           discountAmt = promo.match1;
           break;
+
+        case "Cash_Invoice":
+          invPaymentAmt = promo.match1;
+          invPaymentPer = promo.match;
+          break;
+
+        case "Cash_Income":
+          paymentAmt = promo.match1;
+          paymentPer = promo.match;
+          break;
+
+        case "Transportation":
+          transportAmt = promo.match1;
+          transportPer = promo.match;
+          transportFAmt = promo.match;
+          break;
+
+        case "Special_Discount":
+          invSpecialAmt = promo.match1;
+          invSpecialPer = promo.match;
+          break;
+
+        case "Special_Transportation":
+          specialTrAmt = promo.match1;
+          specialTrnPer = promo.match;
+          invSpecialFreeAmt = promo.match;
+          break;
+
+        case "Currency":
+          invCurrency = promo.match1;
+          mnCurrency = promo.match;
+          remarkCurrency = promo.remark ?? "";
+          break;
+
+        case "FactorySupport":
+          invFactory = promo.match1;
+          mnFactory = promo.match;
+          remarkFactory = promo.remark ?? "";
+          break;
+
+        case "TransportbyBoat7":
+          invTransportB7 = promo.match1;
+          mnTransportB7 = promo.match;
+          remarkTransportB7 = promo.remark ?? "";
+          break;
+
+        case "TransportbyBoat8":
+          invTransportB8 = promo.match1;
+          mnTransportB8 = promo.match;
+          remarkTransportB8 = promo.remark ?? "";
+          break;
+
+        case "EmployeeCommission":
+          invEmployeeCom = promo.match1;
+          mnEmployeeCom = promo.match;
+          remarkEmployeeCom = promo.remark ?? "";
+          break;
+
+        case "DepotCommission":
+          invDepotCom = promo.match1;
+          mnDepotCom = promo.match;
+          remarkDepotCom = promo.remark ?? "";
+          break;
+
+        case "QuarterCommission":
+          invQuarterCom = promo.match1;
+          mnQuarterCom = promo.match;
+          remarkQuarterCom = promo.remark ?? "";
+          break;
+
+        case "MarketingExpense":
+          invMarketing = promo.match1;
+          mnMarketing = promo.match;
+          remarkMarketing = promo.remark ?? "";
+          break;
+
         case "Other9":
-          other9Per = promo.match;
-          other9Amt = promo.match1;
+          MnOther9 = promo.match;
+          InOther9= promo.match1;
           remark9 = promo.remark ?? "";
           break;
+
         case "Other10":
-          other10Per = promo.match;
-          other10Amt = promo.match1;
+          MnOther10 = promo.match;
+          InOther10 = promo.match1;
           remark10 = promo.remark ?? "";
           break;
+
         case "Other11":
-          other11Per = promo.match;
-          other11Amt = promo.match1;
+          MnOther11 = promo.match;
+          InOther11 = promo.match1;
           remark11 = promo.remark ?? "";
           break;
+
         case "Other12":
-          other12Per = promo.match;
-          other12Amt = promo.match1;
+          MnOther12 = promo.match;
+          InOther12 = promo.match1;
           remark12 = promo.remark ?? "";
           break;
-        case "SpecialPrice":
-          specialPer = promo.match;
-          specialAmt = promo.match1;
-          break;
+
         case "Voucher":
           voucherAmt = promo.match1;
           break;
       }
 
+      // ── Calculate Totals ───────────────────────────────────────────────
       final grossTotal = item.qty * item.price;
       final totalDiscount = discountAmt +
-          other9Amt +
-          other10Amt +
-          other11Amt +
-          other12Amt +
+          InOther9 +
+          InOther10 +
+          InOther11 +
+          InOther12 +
           specialAmt +
-          voucherAmt;
+          voucherAmt +
+          invPaymentAmt +
+          paymentAmt +
+          transportAmt +
+          invSpecialAmt +
+          specialTrAmt +
+          invCurrency +
+          invFactory +
+          invTransportB7 +
+          invTransportB8 +
+          invEmployeeCom +
+          invDepotCom +
+          invQuarterCom +
+          invMarketing;
+
       final netLineTotal = grossTotal - totalDiscount;
 
+      // ── Update Item ───────────────────────────────────────────────────
       selectedItems[index] = SaleItem(
         itemCode: item.itemCode,
         name: item.name,
@@ -413,23 +629,79 @@ class SaleController extends ChangeNotifier {
         itemGroupName: item.itemGroupName,
         subGroupDes: item.subGroupDes,
         subGroup2Des: item.subGroup2Des,
+
         uInvDiscountPer: discountPer,
         uInvDicountAmt: discountAmt,
+
+        uInvPaymentAmt: invPaymentAmt,
+        uPaymentPer: paymentPer,
+        uPaymentAmt: paymentAmt,
+        uInvPaymentPer: invPaymentPer,
+
+        uInOther9: InOther9,
+        uMnOther9: MnOther9,
+        uRemarkOther9: remark9,
+
+        uInOther10: InOther10,
+        uMnOther10: MnOther10,
+        uRemarkOther10: remark10,
+
+        uInOther11: InOther11,
+        uMnOther11: MnOther11,
+        uRemarkOther11: remark11,
+
+        uInOther12: InOther12,
+        uMnOther12: MnOther12,
+        uRemarkOther12: remark12,
+
         uSpecialPriceAmt: specialAmt,
         uSpecialPricePercent: specialPer,
+
         uInvVoucherAmt: voucherAmt,
-        uInOther9: other9Per,
-        uMnOther9: other9Amt,
-        uRemarkOther9: remark9,
-        uInOther10: other10Per,
-        uMnOther10: other10Amt,
-        uRemarkOther10: remark10,
-        uInOther11: other11Per,
-        uMnOther11: other11Amt,
-        uRemarkOther11: remark11,
-        uInOther12: other12Per,
-        uMnOther12: other12Amt,
-        uRemarkOther12: remark12,
+
+        uInvTransportAmt: transportAmt,
+        uInvTransportPer: transportPer,
+        uInvTransprtFAmt: transportFAmt,
+
+        uInvSpecialAmt: invSpecialAmt,
+        uInvSpecialPer: invSpecialPer,
+
+        uSpecialTrAmt: specialTrAmt,
+        uSpecialTrnPer: specialTrnPer,
+        uInvSpecialFreeAmt: invSpecialFreeAmt,
+
+        uInvCurrency: invCurrency,
+        uMnCurrency: mnCurrency,
+        uRemarkCurrency: remarkCurrency,
+
+        uInvFactory: invFactory,
+        uMnFactory: mnFactory,
+        uRemarkFactory: remarkFactory,
+
+        uInvTransportB7: invTransportB7,
+        uMnTransportB7: mnTransportB7,
+        uRemarkTransportB7: remarkTransportB7,
+
+        uInvTransportB8: invTransportB8,
+        uMnTransportB8: mnTransportB8,
+        uRemarkTransportB8: remarkTransportB8,
+
+        uInvEmployeeCom: invEmployeeCom,
+        uMnEmployeeCom: mnEmployeeCom,
+        uRemarkEmployeeCom: remarkEmployeeCom,
+
+        uInvDepotCom: invDepotCom,
+        uMnDepotCom: mnDepotCom,
+        uRemarkDepotCom: remarkDepotCom,
+
+        uInvQuarterCom: invQuarterCom,
+        uMnQuarterCom: mnQuarterCom,
+        uRemarkQuarterCom: remarkQuarterCom,
+
+        uInvMarketing: invMarketing,
+        uMnMarketing: mnMarketing,
+        uRemarkMarketing: remarkMarketing,
+
         lineTotal: netLineTotal,
       );
     }
@@ -565,12 +837,12 @@ class SaleController extends ChangeNotifier {
             uInvTransprtFAmt: i.uInvTransprtFAmt,
 
             // ───────── CURRENCY ─────────
-            uInvCurrency: i.uInvCurrency ?? "",
+            uInvCurrency: i.uInvCurrency ?? 0,
             uMnCurrency: i.uMnCurrency,
             uRemarkCurrency: i.uRemarkCurrency ?? "",
 
             // ───────── FACTORY ─────────
-            uInvFactory: i.uInvFactory ?? "",
+            uInvFactory: i.uInvFactory ?? 0,
             uMnFactory: i.uMnFactory,
             uRemarkFactory: i.uRemarkFactory ?? "",
 
