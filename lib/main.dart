@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
 import 'Sale/sale_unplan.dart';
+import 'Sale/saleorder_listing.dart';
 import 'Sale/vistit_plan.dart';
 import 'api/login_api.dart';
 import 'login/login.dart';
@@ -201,10 +202,8 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildHeader(context),
 
               Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 6),
-                child: _buildNotificationBar(
-                    "2 Orders Pending Approval, 5 Customers Not Visited Today"),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: const SizedBox.shrink(), // Takes up 0 space on its own, but keeps padding
               ),
 
               Expanded(
@@ -304,11 +303,8 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           Row(
             children: [
-              _headerIconBtn(Icons.chat_bubble_outline),
               const SizedBox(width: 8),
               _headerIconBtn(Icons.notifications_none),
-              const SizedBox(width: 4),
-              _headerIconBtn(Icons.logout, onTap: () => _logout()),
             ],
           ),
         ],
@@ -533,7 +529,12 @@ class MenuSection extends StatelessWidget {
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const ItemMasterPage())),
       ),
-      _MenuItem("Sale Listing", Icons.article_rounded),
+      _MenuItem(
+        "Sale Listing",
+        Icons.article_rounded,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const SaleOrderListingPage())),
+      ),
     ];
 
     return Column(

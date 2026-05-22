@@ -253,19 +253,6 @@ class SaleItem {
 
   // ───────────────── CALCULATIONS ─────────────────
 
-  double get subTotal => qty * price;
-
-  double get totalDiscount =>
-      disAmt +
-          uInvDicountAmt +
-          uMnOther9 +
-          uMnOther10 +
-          uMnOther11 +
-          uMnOther12;
-
-  double get total => subTotal - totalDiscount;
-
-  double get computedLineTotal => total;
 
   // ───────────────── COPY WITH ─────────────────
 

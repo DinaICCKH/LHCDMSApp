@@ -37,10 +37,21 @@ class SaleController extends ChangeNotifier {
   TimeOfDay? deliveryTime;
 
   // ── Computed ──────────────────────────────────────────────────────────────
-  double get subTotal =>
-      selectedItems.fold(0.0, (sum, i) => sum + i.price * i.qty);
 
-  double get docTotal => subTotal - discountAmount;
+
+  double get subTotal => selectedItems.fold(0.0, (sum, i) {
+    // If promotion has been calculated and updated lineTotal, use it.
+    // Otherwise, fall back to gross calculation (price * qty).
+    final double finalLineVal = (i.lineTotal != null && i.lineTotal! > 0)
+        ? i.lineTotal!
+        : (i.price * i.qty);
+    return sum + finalLineVal;
+  });
+
+  double get docTotal {
+    final total = subTotal - discountAmount;
+    return total < 0 ? 0.0 : total; // Prevent negative values
+  }
 
   // ─────────────────────────────────────────────
   // DATA LOADERS
@@ -251,6 +262,7 @@ class SaleController extends ChangeNotifier {
     percent = percent.clamp(0.0, 100.0);
 
     discountPercent = percent;
+    // Multiplies against our updated net-line subtotal accumulation!
     discountAmount = subTotal * percent / 100;
 
     notifyListeners();
@@ -790,7 +802,7 @@ class SaleController extends ChangeNotifier {
             unitMsr: i.uom,
 
             price: i.price,
-            lineTotal: i.qty * i.price,
+            lineTotal: double.parse(i.lineTotal.toStringAsFixed(2)),
 
             taxCode: "VATOUT00",
             whsCode: i.whsCode ?? "WH001",
@@ -802,98 +814,98 @@ class SaleController extends ChangeNotifier {
             ocrCode4: i.ocrCode4,
 
             // ───────── PAYMENT ─────────
-            uInvPaymentAmt: i.uInvPaymentAmt,
-            uPaymentPer: i.uPaymentPer,
-            uPaymentAmt: i.uPaymentAmt,
+            uInvPaymentAmt: double.parse(i.uInvPaymentAmt.toStringAsFixed(2)),
+            uPaymentPer: double.parse(i.uPaymentPer.toStringAsFixed(2)),
+            uPaymentAmt: double.parse(i.uPaymentAmt.toStringAsFixed(2)),
 
-            // ───────── DISCOUNT ─────────
-            uInvDiscountPer: i.uInvDiscountPer,
-            uInvDicountAmt: i.uInvDicountAmt,
-            uDiscPer: i.uDiscPer,
-            uDiscAmt: i.uDiscAmt,
+// ───────── DISCOUNT ─────────
+            uInvDiscountPer: double.parse(i.uInvDiscountPer.toStringAsFixed(2)),
+            uInvDicountAmt: double.parse(i.uInvDicountAmt.toStringAsFixed(2)),
+            uDiscPer: double.parse(i.uDiscPer.toStringAsFixed(2)),
+            uDiscAmt: double.parse(i.uDiscAmt.toStringAsFixed(2)),
 
-            // ───────── VOUCHER ─────────
-            uInvVoucherAmt: i.uInvVoucherAmt,
+// ───────── VOUCHER ─────────
+            uInvVoucherAmt: double.parse(i.uInvVoucherAmt.toStringAsFixed(2)),
             uVoucher: i.uVoucher ?? "",
             uVoucherNo: i.uVoucherNo ?? "",
 
-            // ───────── TRANSPORT ─────────
-            uInvTransportAmt: i.uInvTransportAmt,
-            uTransportationPercent: i.uTransportationPercent,
-            uTransportationAmt: i.uTransportationAmt,
+// ───────── TRANSPORT ─────────
+            uInvTransportAmt: double.parse(i.uInvTransportAmt.toStringAsFixed(2)),
+            uTransportationPercent: double.parse(i.uTransportationPercent.toStringAsFixed(2)),
+            uTransportationAmt: double.parse(i.uTransportationAmt.toStringAsFixed(2)),
 
-            // ───────── SPECIAL ─────────
-            uInvSpecialAmt: i.uInvSpecialAmt,
-            uSpecialPricePercent: i.uSpecialPricePercent,
-            uSpecialPriceAmt: i.uSpecialPriceAmt,
+// ───────── SPECIAL ─────────
+            uInvSpecialAmt: double.parse(i.uInvSpecialAmt.toStringAsFixed(2)),
+            uSpecialPricePercent: double.parse(i.uSpecialPricePercent.toStringAsFixed(2)),
+            uSpecialPriceAmt: double.parse(i.uSpecialPriceAmt.toStringAsFixed(2)),
 
-            // ───────── POLICY ─────────
-            uPolicyDisc: i.uPolicyDisc,
-            uInvTransportPer: i.uInvTransportPer,
-            uInvSpecialPer: i.uInvSpecialPer,
-            uInvSpecialFreeAmt: i.uInvSpecialFreeAmt,
-            uInvPaymentPer: i.uInvPaymentPer,
+// ───────── POLICY ─────────
+            uPolicyDisc: double.parse(i.uPolicyDisc.toStringAsFixed(2)),
+            uInvTransportPer: double.parse(i.uInvTransportPer.toStringAsFixed(2)),
+            uInvSpecialPer: double.parse(i.uInvSpecialPer.toStringAsFixed(2)),
+            uInvSpecialFreeAmt: double.parse(i.uInvSpecialFreeAmt.toStringAsFixed(2)),
+            uInvPaymentPer: double.parse(i.uInvPaymentPer.toStringAsFixed(2)),
             uAddOnStatus: i.uAddOnStatus ?? "",
-            uInvTransprtFAmt: i.uInvTransprtFAmt,
+            uInvTransprtFAmt: double.parse(i.uInvTransprtFAmt.toStringAsFixed(2)),
 
-            // ───────── CURRENCY ─────────
-            uInvCurrency: i.uInvCurrency ?? 0,
-            uMnCurrency: i.uMnCurrency,
+// ───────── CURRENCY ─────────
+            uInvCurrency: double.parse((i.uInvCurrency ?? 0.0).toStringAsFixed(2)),
+            uMnCurrency: double.parse(i.uMnCurrency.toStringAsFixed(2)),
             uRemarkCurrency: i.uRemarkCurrency ?? "",
 
-            // ───────── FACTORY ─────────
-            uInvFactory: i.uInvFactory ?? 0,
-            uMnFactory: i.uMnFactory,
+// ───────── FACTORY ─────────
+            uInvFactory: double.parse((i.uInvFactory ?? 0.0).toStringAsFixed(2)),
+            uMnFactory: double.parse(i.uMnFactory.toStringAsFixed(2)),
             uRemarkFactory: i.uRemarkFactory ?? "",
 
-            // ───────── TRANSPORT B7 ─────────
-            uInvTransportB7: i.uInvTransportB7,
-            uMnTransportB7: i.uMnTransportB7,
+// ───────── TRANSPORT B7 ─────────
+            uInvTransportB7: double.parse(i.uInvTransportB7.toStringAsFixed(2)),
+            uMnTransportB7: double.parse(i.uMnTransportB7.toStringAsFixed(2)),
             uRemarkTransportB7: i.uRemarkTransportB7 ?? "",
 
-            // ───────── TRANSPORT B8 ─────────
-            uInvTransportB8: i.uInvTransportB8,
-            uMnTransportB8: i.uMnTransportB8,
+// ───────── TRANSPORT B8 ─────────
+            uInvTransportB8: double.parse(i.uInvTransportB8.toStringAsFixed(2)),
+            uMnTransportB8: double.parse(i.uMnTransportB8.toStringAsFixed(2)),
             uRemarkTransportB8: i.uRemarkTransportB8 ?? "",
 
-            // ───────── COMMISSION ─────────
-            uInvEmployeeCom: i.uInvEmployeeCom,
-            uMnEmployeeCom: i.uMnEmployeeCom,
+// ───────── COMMISSION ─────────
+            uInvEmployeeCom: double.parse(i.uInvEmployeeCom.toStringAsFixed(2)),
+            uMnEmployeeCom: double.parse(i.uMnEmployeeCom.toStringAsFixed(2)),
             uRemarkEmployeeCom: i.uRemarkEmployeeCom ?? "",
 
-            uInvDepotCom: i.uInvDepotCom,
-            uMnDepotCom: i.uMnDepotCom,
+            uInvDepotCom: double.parse(i.uInvDepotCom.toStringAsFixed(2)),
+            uMnDepotCom: double.parse(i.uMnDepotCom.toStringAsFixed(2)),
             uRemarkDepotCom: i.uRemarkDepotCom ?? "",
 
-            uInvQuarterCom: i.uInvQuarterCom,
-            uMnQuarterCom: i.uMnQuarterCom,
+            uInvQuarterCom: double.parse(i.uInvQuarterCom.toStringAsFixed(2)),
+            uMnQuarterCom: double.parse(i.uMnQuarterCom.toStringAsFixed(2)),
             uRemarkQuarterCom: i.uRemarkQuarterCom ?? "",
 
-            uInvMarketing: i.uInvMarketing,
-            uMnMarketing: i.uMnMarketing,
+            uInvMarketing: double.parse(i.uInvMarketing.toStringAsFixed(2)),
+            uMnMarketing: double.parse(i.uMnMarketing.toStringAsFixed(2)),
             uRemarkMarketing: i.uRemarkMarketing ?? "",
 
-            // ───────── OTHER ─────────
-            uInOther9: i.uInOther9,
-            uMnOther9: i.uMnOther9,
+// ───────── OTHER ─────────
+            uInOther9: double.parse(i.uInOther9.toStringAsFixed(2)),
+            uMnOther9: double.parse(i.uMnOther9.toStringAsFixed(2)),
             uRemarkOther9: i.uRemarkOther9 ?? "",
 
-            uInOther10: i.uInOther10,
-            uMnOther10: i.uMnOther10,
+            uInOther10: double.parse(i.uInOther10.toStringAsFixed(2)),
+            uMnOther10: double.parse(i.uMnOther10.toStringAsFixed(2)),
             uRemarkOther10: i.uRemarkOther10 ?? "",
 
-            uInOther11: i.uInOther11,
-            uMnOther11: i.uMnOther11,
+            uInOther11: double.parse(i.uInOther11.toStringAsFixed(2)),
+            uMnOther11: double.parse(i.uMnOther11.toStringAsFixed(2)),
             uRemarkOther11: i.uRemarkOther11 ?? "",
 
-            uInOther12: i.uInOther12,
-            uMnOther12: i.uMnOther12,
+            uInOther12: double.parse(i.uInOther12.toStringAsFixed(2)),
+            uMnOther12: double.parse(i.uMnOther12.toStringAsFixed(2)),
             uRemarkOther12: i.uRemarkOther12 ?? "",
 
-            // ───────── SPECIAL FINAL ─────────
-            uSpecialTrAmt: i.uSpecialTrAmt,
-            uSpecialTrnPer: i.uSpecialTrnPer,
-            uQtyFactory: i.uQtyFactory,
+// ───────── SPECIAL FINAL ─────────
+            uSpecialTrAmt: double.parse(i.uSpecialTrAmt.toStringAsFixed(2)),
+            uSpecialTrnPer: double.parse(i.uSpecialTrnPer.toStringAsFixed(2)),
+            uQtyFactory: double.parse(i.uQtyFactory.toStringAsFixed(2)),
           );
         }),
       );

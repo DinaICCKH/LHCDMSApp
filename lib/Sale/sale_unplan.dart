@@ -1169,7 +1169,14 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           _buildSectionHeader(
               "Items (${controller.selectedItems.length})", ""),
           const SizedBox(height: 6),
-          ...controller.selectedItems.map(_buildSummaryItem),
+// Explicitly pass the arguments required by the updated widget constructor
+          ...controller.selectedItems.map((item) => _buildSummaryItem(
+            context,
+            item,
+            setState,
+            _expandedMap,
+            controller,
+          )),
           const SizedBox(height: 8),
 
           _buildPromotionButton(),
@@ -1351,287 +1358,332 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     );
   }
 
-  Widget _buildSummaryItem(SaleItem item) {
+
+  Widget _buildSummaryItem(BuildContext context, SaleItem item, Function(void Function()) setState, dynamic _expandedMap, dynamic controller) {
     final isLocked = controller.isPromotionLocked;
-    final itemKey  = "${item.itemCode}_${item.qty}_${item.lineTotal}";
+    final itemKey = "${item.itemCode}_summary";
     final isExpanded = _expandedMap[itemKey] ?? false;
+    final isFreeItem = item.discPrcnt == 100 || item.uRemarkOther12 == "FREE_ITEM";
 
-    final isFreeItem = item.discPrcnt == 100;
+    // ── 1. MAP PROMOTIONS MATCHING CONTROLLER STRUCTURE EXACTLY ───────────
+    final Map<String, double> activePromos = {};
 
-    bool hasPromotion = controller.isPromotionLocked &&
-        (item.uInvDicountAmt > 0 ||
-            item.uSpecialPriceAmt > 0 ||
-            item.uInvVoucherAmt > 0 ||
-            item.uMnOther9 > 0 ||
-            item.uMnOther10 > 0 ||
-            item.uMnOther11 > 0 ||
-            item.uMnOther12 > 0 ||
-            isFreeItem);
-
-    String? promoLabel;
-    double discountAmt = 0;
-    double discountPer = 0;
-
-    if (hasPromotion) {
+    if (controller.isPromotionLocked) {
       if (isFreeItem) {
-        promoLabel = "FREE";
-        discountPer = 100;
-        discountAmt = item.price * item.qty;
-      } else if (item.uInvDicountAmt > 0) {
-        promoLabel = "DISCOUNT";
-        discountAmt = item.uInvDicountAmt;
-        discountPer = item.uInvDiscountPer;
-      } else if (item.uSpecialPriceAmt > 0) {
-        promoLabel = "SPECIAL PRICE";
-        discountAmt = item.uSpecialPriceAmt;
-        discountPer = item.uSpecialPricePercent;
-      } else if (item.uInvVoucherAmt > 0) {
-        promoLabel = "VOUCHER";
-        discountAmt = item.uInvVoucherAmt;
-      } else if (item.uMnOther9 > 0) {
-        promoLabel = item.uRemarkOther9.isNotEmpty
-            ? item.uRemarkOther9 : "PROMO 9";
-        discountAmt = item.uMnOther9;
-      } else if (item.uMnOther10 > 0) {
-        promoLabel = item.uRemarkOther10.isNotEmpty
-            ? item.uRemarkOther10 : "PROMO 10";
-        discountAmt = item.uMnOther10;
-      } else if (item.uMnOther11 > 0) {
-        promoLabel = item.uRemarkOther11.isNotEmpty
-            ? item.uRemarkOther11 : "PROMO 11";
-        discountAmt = item.uMnOther11;
-      } else if (item.uMnOther12 > 0) {
-        promoLabel = item.uRemarkOther12.isNotEmpty
-            ? item.uRemarkOther12 : "PROMO 12";
-        discountAmt = item.uMnOther12;
+        activePromos["FREE ITEM"] = item.disAmt > 0 ? item.disAmt : (item.price * item.qty);
+      } else {
+        if (item.uInvDicountAmt > 0) activePromos["DISCOUNT"] = item.uInvDicountAmt;
+        if (item.uInvPaymentAmt > 0) activePromos["CASH INVOICE"] = item.uInvPaymentAmt;
+        if (item.uPaymentAmt > 0) activePromos["CASH INCOME"] = item.uPaymentAmt;
+        if (item.uInvTransportAmt > 0) activePromos["TRANSPORTATION"] = item.uInvTransportAmt;
+        if (item.uInvSpecialAmt > 0) activePromos["SPECIAL DISCOUNT"] = item.uInvSpecialAmt;
+        if (item.uSpecialTrAmt > 0) activePromos["SPECIAL TRANSP."] = item.uSpecialTrAmt;
+        if (item.uSpecialPriceAmt > 0) activePromos["SPECIAL PRICE"] = item.uSpecialPriceAmt;
+        if (item.uInvVoucherAmt > 0) activePromos["VOUCHER"] = item.uInvVoucherAmt;
+
+        if (item.uInOther9 > 0) activePromos[item.uRemarkOther9.isNotEmpty ? item.uRemarkOther9 : "OTHER 9"] = item.uInOther9;
+        if (item.uInOther10 > 0) activePromos[item.uRemarkOther10.isNotEmpty ? item.uRemarkOther10 : "OTHER 10"] = item.uInOther10;
+        if (item.uInOther11 > 0) activePromos[item.uRemarkOther11.isNotEmpty ? item.uRemarkOther11 : "OTHER 11"] = item.uInOther11;
+        if (item.uInOther12 > 0 && item.uRemarkOther12 != "FREE_ITEM") {
+          activePromos[item.uRemarkOther12.isNotEmpty ? item.uRemarkOther12 : "OTHER 12"] = item.uInOther12;
+        }
+
+        if (item.uInvCurrency > 0) activePromos[item.uRemarkCurrency.isNotEmpty ? item.uRemarkCurrency : "CURRENCY"] = item.uInvCurrency;
+        if (item.uInvFactory > 0) activePromos[item.uRemarkFactory.isNotEmpty ? item.uRemarkFactory : "FACTORY SUPPORT"] = item.uInvFactory;
+        if (item.uInvTransportB7 > 0) activePromos[item.uRemarkTransportB7.isNotEmpty ? item.uRemarkTransportB7 : "BOAT TRANS. 7"] = item.uInvTransportB7;
+        if (item.uInvTransportB8 > 0) activePromos[item.uRemarkTransportB8.isNotEmpty ? item.uRemarkTransportB8 : "BOAT TRANS. 8"] = item.uInvTransportB8;
+
+        if (item.uInvEmployeeCom > 0) activePromos[item.uRemarkEmployeeCom.isNotEmpty ? item.uRemarkEmployeeCom : "EMPLOYEE COMM."] = item.uInvEmployeeCom;
+        if (item.uInvDepotCom > 0) activePromos[item.uRemarkDepotCom.isNotEmpty ? item.uRemarkDepotCom : "DEPOT COMM."] = item.uInvDepotCom;
+        if (item.uInvQuarterCom > 0) activePromos[item.uRemarkQuarterCom.isNotEmpty ? item.uRemarkQuarterCom : "QUARTERLY COMM."] = item.uInvQuarterCom;
+        if (item.uInvMarketing > 0) activePromos[item.uRemarkMarketing.isNotEmpty ? item.uRemarkMarketing : "MARKETING EXP."] = item.uInvMarketing;
       }
     }
 
-    final grossTotal = item.qty * item.price;
-    final netTotal   = isFreeItem
-        ? 0
-        : hasPromotion
-        ? grossTotal - discountAmt
-        : grossTotal;
+    final bool hasPromotion = activePromos.isNotEmpty;
+
+    // ── 2. MATHEMATICAL CALCULATIONS (UPDATED FOR DEDUCTION) ───────────────
+    final double grossTotal = item.qty * item.price;
+
+    // Sum up all matching row discounts
+    final double totalDiscount = isFreeItem ? 0.0 : activePromos.values.fold<double>(0, (sum, val) => sum + val);
+
+    // Calculate final row total by taking out all active promotions/discounts
+    final double netTotal = isFreeItem ? 0.0 : (grossTotal - totalDiscount);
+
+    final String qtyDisplayString = item.qty % 1 == 0
+        ? item.qty.toInt().toString()
+        : item.qty.toStringAsFixed(2);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 5),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isFreeItem ? Colors.green.shade50 : _kCard,
+        color: isFreeItem ? Colors.green.shade50 : Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: isFreeItem
-            ? Border.all(color: Colors.green.shade300)
-            : null,
+        border: Border.all(color: isFreeItem ? Colors.green.shade200 : Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.015), blurRadius: 4, offset: const Offset(0, 2)),
+        ],
       ),
-      child: Column(children: [
-        Row(children: [
-          if (hasPromotion)
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 6, vertical: 2,
-              ),
-              margin: const EdgeInsets.only(right: 6),
-              decoration: BoxDecoration(
-                color: isFreeItem
-                    ? Colors.green
-                    : Colors.orange.shade600,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                promoLabel ?? "",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── TOP ROW: PROMOTION LABELS / TAGS ─────────────────────────────────
+          if (hasPromotion) ...[
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: activePromos.keys.map((label) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isFreeItem ? Colors.green : Colors.orange.shade700,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                );
+              }).toList(),
             ),
+            const SizedBox(height: 6),
+          ],
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isFreeItem
-                          ? Colors.green.shade800
-                          : Colors.black,
-                    )),
-                const SizedBox(height: 2),
-                Text("${item.itemCode}  |  ${item.uom}",
-                    style: const TextStyle(
-                        fontSize: 10, color: Colors.grey)),
-                const SizedBox(height: 3),
-                Text(
-                  "Unit Price: \$${item.price.toStringAsFixed(2)}",
-                  style: const TextStyle(
-                      fontSize: 10, color: Colors.black54),
+          // ── MIDDLE BLOCK: PRODUCT TEXT DESCRIPTION (UP TO 2 LINES) ───────────
+          Text(
+            item.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isFreeItem ? Colors.green.shade900 : Colors.black87,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "${item.itemCode}  •  ${item.uom}",
+                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                "Unit Price: \$${item.price.toStringAsFixed(2)}",
+                style: const TextStyle(fontSize: 11, color: Colors.black54),
+              ),
+            ],
+          ),
+
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, thickness: 0.5, color: Colors.black12),
+          ),
+
+          // ── BOTTOM ROW: QUANTITY ACTIONS & FINAL PRICING ─────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Left Side: Quantity Input Group
+              Container(
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isLocked ? Colors.grey.shade200 : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
-                if (isFreeItem)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text("FREE ITEM PROMOTION",
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildQtyButton(
+                      icon: Icons.remove,
+                      isDisabled: isLocked || item.qty <= 1,
+                      onTap: () {
+                        final currentQty = item.qty;
+                        if (currentQty <= 1) return;
+                        controller.updateItemQtyByValue(item, currentQty - 1);
+                      },
+                    ),
+                    Container(
+                      width: 60,
+                      alignment: Alignment.center,
+                      child: TextFormField(
+                        key: ValueKey("${item.itemCode}_qty_${qtyDisplayString}"),
+                        initialValue: qtyDisplayString,
+                        enabled: !isLocked,
+                        textAlign: TextAlign.center,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                        ],
                         style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.green.shade700,
-                          fontWeight: FontWeight.bold,
-                        )),
-                  ),
-                if (hasPromotion && isExpanded) ...[
-                  const SizedBox(height: 6),
-                  Text("Type: $promoLabel",
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.deepOrange,
-                        fontWeight: FontWeight.w600,
-                      )),
-                  if (discountPer > 0)
-                    Text(
-                      "Discount %: ${discountPer.toStringAsFixed(2)}%",
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                  if (discountAmt > 0)
-                    Text(
-                      "Discount Amt: \$${discountAmt.toStringAsFixed(2)}",
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                ],
-              ],
-            ),
-          ),
-
-          // QTY CONTROL
-          Container(
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                InkWell(
-                  onTap: isLocked
-                      ? null
-                      : () {
-                    if (item.qty <= 1) return;
-                    controller.updateItemQty(item, -1);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.remove,
-                        size: 12,
-                        color: isLocked
-                            ? Colors.grey
-                            : Colors.black),
-                  ),
-                ),
-                SizedBox(
-                  width: 32,
-                  child: TextFormField(
-                    key: ValueKey(
-                      "${item.itemCode}_${item.qty}_${item.lineTotal}",
-                    ),
-                    initialValue: item.qty.toString(),
-                    enabled: !isLocked,
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (value) {
-                      final qty = double.tryParse(value);
-                      if (qty == null || qty <= 0) return;
-                      controller.updateItemQtyByValue(item, qty);
-                    },
-                  ),
-                ),
-                InkWell(
-                  onTap: isLocked
-                      ? null
-                      : () => controller.updateItemQty(item, 1),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.add,
-                        size: 12,
-                        color: isLocked
-                            ? Colors.grey
-                            : Colors.black),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 10),
-
-          // TOTAL
-          GestureDetector(
-            onTap: hasPromotion
-                ? () {
-              setState(() {
-                _expandedMap[itemKey] =
-                !(_expandedMap[itemKey] ?? false);
-              });
-            }
-                : null,
-            child: SizedBox(
-              width: 85,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (hasPromotion)
-                    Text(
-                      "\$${grossTotal.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey,
-                        decoration: TextDecoration.lineThrough,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isLocked ? Colors.grey.shade600 : Colors.black87,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: (value) {
+                          final qty = double.tryParse(value);
+                          if (qty != null && qty > 0) {
+                            controller.updateItemQtyByValue(item, qty);
+                          }
+                        },
+                        onFieldSubmitted: (value) {
+                          final qty = double.tryParse(value);
+                          if (qty == null || qty <= 0) {
+                            controller.updateItemQtyByValue(item, item.qty);
+                            return;
+                          }
+                          controller.updateItemQtyByValue(item, qty);
+                        },
                       ),
                     ),
-                  Text(
-                    isFreeItem
-                        ? "FREE"
-                        : "\$${netTotal.toStringAsFixed(2)}",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isFreeItem
-                          ? Colors.green
-                          : Colors.black,
+                    _buildQtyButton(
+                      icon: Icons.add,
+                      isDisabled: isLocked,
+                      onTap: () {
+                        controller.updateItemQtyByValue(item, item.qty + 1);
+                      },
                     ),
+                  ],
+                ),
+              ),
+
+              // Right Side: Price Details & Dropdown Trigger Action
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: hasPromotion && !isFreeItem
+                    ? () {
+                  setState(() {
+                    _expandedMap[itemKey] = !(_expandedMap[itemKey] ?? false);
+                  });
+                }
+                    : null,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // Only display original price strikethrough if there is an active discount
+                        if (hasPromotion && totalDiscount > 0 && !isFreeItem)
+                          Text(
+                            "\$${grossTotal.toStringAsFixed(2)}",
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                        Text(
+                          isFreeItem ? "FREE" : "\$${netTotal.toStringAsFixed(2)}",
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: isFreeItem ? Colors.green.shade700 : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (hasPromotion && !isFreeItem) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        size: 18,
+                        color: Colors.grey.shade700,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // ── EXPANDED AREA: ITEMIZED DISCOUNT LINE BREAKDOWN ──────────────────
+          if (hasPromotion && isExpanded && !isFreeItem) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Active Line Reductions:",
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black54),
                   ),
-                  if (hasPromotion)
-                    Icon(
-                      isExpanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
-                      size: 14,
-                    ),
+                  const Divider(height: 8, thickness: 0.5),
+                  ...activePromos.entries.map((promo) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.5),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              promo.key,
+                              style: const TextStyle(fontSize: 10, color: Colors.deepOrange, fontWeight: FontWeight.w500),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            "-\$${promo.value.toStringAsFixed(2)}",
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  const Divider(height: 8, thickness: 0.5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Aggregate Deduction:", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                      Text(
+                        "\$${totalDiscount.toStringAsFixed(2)}",
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green.shade700),
+                      ),
+                    ],
+                  )
                 ],
               ),
             ),
-          ),
-        ]),
-      ]),
+          ],
+        ],
+      ),
     );
   }
 
+  Widget _buildQtyButton({required IconData icon, required bool isDisabled, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: isDisabled ? null : onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Icon(
+          icon,
+          size: 14,
+          color: isDisabled ? Colors.grey.shade400 : Colors.black87,
+        ),
+      ),
+    );
+  }
   // ─────────────────────────────────────────────────────
   // ORDER SUMMARY
   // ─────────────────────────────────────────────────────
@@ -1651,22 +1703,21 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           _buildSubTotal(),
           const SizedBox(height: 10),
           _buildDiscountRow(),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(
-                child: Divider(
-                    color: Colors.grey.shade300, thickness: 1)),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Text("Total",
-                  style: TextStyle(
-                      color: Colors.grey.shade400, fontSize: 11)),
-            ),
-            Expanded(
-                child: Divider(
-                    color: Colors.grey.shade300, thickness: 1)),
-          ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: Divider(color: Colors.grey.shade300, thickness: 1)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  "NET TOTALS",
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                ),
+              ),
+              Expanded(child: Divider(color: Colors.grey.shade300, thickness: 1)),
+            ],
+          ),
+          const SizedBox(height: 12),
           _buildDocTotal(),
         ],
       ),
@@ -1674,45 +1725,50 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   }
 
   Widget _buildSubTotal() {
+    // Dynamically reading total gross line value prior to overall document deductions
+    final double currentSubTotal = controller.subTotal;
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16, vertical: 14,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: _kPrimary.withOpacity(0.15), width: 1.2,
-        ),
+        border: Border.all(color: _kPrimary.withOpacity(0.15), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.03),
             blurRadius: 8,
             offset: const Offset(0, 3),
           )
         ],
       ),
-      child: Row(children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("Subtotal",
-              style: TextStyle(
-                  color: Colors.grey.shade700,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600)),
-          Text("qty x price",
-              style: TextStyle(
-                  color: Colors.grey.shade400, fontSize: 10)),
-        ]),
-        const Spacer(),
-        Text(
-          "\$${controller.subTotal.toStringAsFixed(2)}",
-          style: TextStyle(
-            color: Colors.grey.shade800,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Subtotal",
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Gross Accumulation",
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 10),
+              ),
+            ],
           ),
-        ),
-      ]),
+          const Spacer(),
+          Text(
+            "\$${currentSubTotal.toStringAsFixed(2)}",
+            style: TextStyle(
+              color: Colors.grey.shade800,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
