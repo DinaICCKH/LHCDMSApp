@@ -17,8 +17,12 @@ const _kDanger   = Color(0xFFE53935);
 const _kSuccess  = Color(0xFF43A047);
 const _kOrange   = Color(0xFFFB8C00);
 
+// 1. Update the widget class constructor to accept an optional customer parameter
 class SaleUnplanPage extends StatefulWidget {
-  const SaleUnplanPage({super.key});
+  final api.Customer? customer; // ✅ Add this line
+
+  const SaleUnplanPage({super.key, this.customer}); // ✅ Update constructor
+
   @override
   State<SaleUnplanPage> createState() => _SaleUnplanPageState();
 }
@@ -53,7 +57,6 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
   void initState() {
     super.initState();
 
-// 1. Initialize Animation Controllers
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 280),
@@ -66,19 +69,21 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
 
     _animController!.forward();
 
-    // 2. Set Default Value for Delivery Time if it's currently null
-    // This guarantees 'hasValue: true' is satisfied and saves correctly
     if (controller.deliveryTime == null) {
       controller.deliveryTime = TimeOfDay.now();
     }
 
-    // 3. Listen to controller changes → rebuild UI
     controller.addListener(_onControllerChange);
-
-    // 4. Fetch background Master Data
     controller.loadCustomers();
     controller.loadItems();
+
+    // ✅ 2. Add this block to auto-select the customer and skip to Step 2
+    if (widget.customer != null) {
+      controller.selectCustomer(widget.customer!);
+      _step = 2; // Jump directly to item catalog selection
+    }
   }
+
   void _onControllerChange() {
     if (mounted) setState(() {});
   }

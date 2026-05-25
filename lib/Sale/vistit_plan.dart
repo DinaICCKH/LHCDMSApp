@@ -1,9 +1,11 @@
+// File: lib/pages/visit_plan_page.dart
+
 import 'package:flutter/material.dart';
 import '../api/get_visitplan_api.dart';
 import 'package:intl/intl.dart';
 
 import 'models/customer_visit_model.dart';
-import 'sale_visit_page.dart';
+import 'sale_visit_check_in.dart'; // ✅ UPDATED: Imported the new file name
 
 class VisitPlanPage extends StatefulWidget {
   const VisitPlanPage({super.key});
@@ -36,7 +38,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
   void initState() {
     super.initState();
 
-    /// ✅ ADDED: initialIndex: 1 → default tab = Today
     _tabController = TabController(
       length: 5,
       vsync: this,
@@ -52,49 +53,37 @@ class _VisitPlanPageState extends State<VisitPlanPage>
 
     try {
       final plans = await VisitPlanApi.getLocalVisitPlans();
-
       final now = DateTime.now();
 
       bool sameDay(DateTime a, DateTime b) =>
-          a.year == b.year &&
-              a.month == b.month &&
-              a.day == b.day;
+          a.year == b.year && a.month == b.month && a.day == b.day;
 
       setState(() {
         allPlans = plans;
 
-        todayPlans =
-            plans.where((p) => sameDay(p.visitDate, now)).toList();
+        todayPlans = plans.where((p) => sameDay(p.visitDate, now)).toList();
 
         tomorrowPlans = plans
-            .where((p) => sameDay(
-            p.visitDate,
-            now.add(const Duration(days: 1))))
+            .where((p) => sameDay(p.visitDate, now.add(const Duration(days: 1))))
             .toList();
 
         yesterdayPlans = plans
-            .where((p) => sameDay(
-            p.visitDate,
-            now.subtract(const Duration(days: 1))))
+            .where((p) => sameDay(p.visitDate, now.subtract(const Duration(days: 1))))
             .toList();
 
         upcomingPlans = plans.where((p) {
-          return p.visitDate
-              .isAfter(now.add(const Duration(days: 1)));
+          return p.visitDate.isAfter(now.add(const Duration(days: 1)));
         }).toList();
 
         previousPlans = plans.where((p) {
-          return p.visitDate
-              .isBefore(now.subtract(const Duration(days: 1)));
+          return p.visitDate.isBefore(now.subtract(const Duration(days: 1)));
         }).toList();
 
         filteredPlans = plans;
-
         isLoading = false;
       });
     } catch (e) {
       print("Error loading visit plans: $e");
-
       setState(() => isLoading = false);
     }
   }
@@ -134,7 +123,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
               ),
             ),
           ),
-
           Expanded(
             child: Text(
               value.isEmpty ? "-" : value,
@@ -149,11 +137,9 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     );
   }
 
-
-
   Widget _buildCard(VisitPlan plan, {bool isToday = false}) {
     final isDone = plan.status.toLowerCase() == "done";
-    final isSynced = plan.synced.toLowerCase() == "yes"; // check if already synced
+    final isSynced = plan.synced.toLowerCase() == "yes";
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -173,7 +159,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             color: isDone ? Colors.green : Colors.blue,
           ),
         ),
-
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -218,7 +203,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             ),
           ],
         ),
-
         children: [
           const Divider(),
           _row("Address", plan.fullAddress),
@@ -228,7 +212,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
           _row("Doc No", plan.docNum),
           _row("Doc Year", plan.docYear.toString()),
           _row("Detail Entry", plan.detailEntry.toString()),
-
           if (isToday)
             Padding(
               padding: const EdgeInsets.only(top: 14),
@@ -249,12 +232,13 @@ class _VisitPlanPageState extends State<VisitPlanPage>
                     ),
                   ),
                   onPressed: isSynced
-                      ? null // disable button if already visited
+                      ? null
                       : () {
+                    // ✅ UPDATED: Links smoothly to SaleVisitCheckInPage
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => SaleFromVisitPage(
+                        builder: (_) => SaleVisitCheckInPage(
                           customer: CustomerVisit(
                             cardCode: plan.cardCode,
                             cardName: plan.cardName,
@@ -273,7 +257,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
       ),
     );
   }
-
 
   /// ================= TAB CONTENT
   Widget _buildTab(
@@ -300,26 +283,20 @@ class _VisitPlanPageState extends State<VisitPlanPage>
 
     return Column(
       children: [
-        /// SEARCH
         if (searchable)
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextField(
               onChanged: _filterSearch,
-
               decoration: InputDecoration(
                 hintText: "Search customer, code, phone...",
-
                 prefixIcon: const Icon(Icons.search),
-
                 filled: true,
                 fillColor: Colors.grey.shade100,
-
                 contentPadding: const EdgeInsets.symmetric(
                   vertical: 0,
                   horizontal: 10,
                 ),
-
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -327,17 +304,12 @@ class _VisitPlanPageState extends State<VisitPlanPage>
               ),
             ),
           ),
-
-        /// LIST
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadVisitPlans,
-
             child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-
               itemCount: data.length,
-
               itemBuilder: (context, index) {
                 return _buildCard(
                   data[index],
@@ -356,7 +328,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFF1976D2),
@@ -387,22 +358,16 @@ class _VisitPlanPageState extends State<VisitPlanPage>
           ],
         ),
       ),
-
       body: TabBarView(
         controller: _tabController,
-
         children: [
           _buildTab(yesterdayPlans),
-
           _buildTab(
             todayPlans,
             isToday: true,
           ),
-
           _buildTab(tomorrowPlans),
-
           _buildTab(upcomingPlans),
-
           _buildTab(
             previousPlans,
             searchable: true,
