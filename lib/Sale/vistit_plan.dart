@@ -5,8 +5,11 @@ import '../api/get_visitplan_api.dart';
 import 'package:intl/intl.dart';
 
 import 'models/customer_visit_model.dart';
-import 'sale_visit_check_in.dart'; // ✅ UPDATED: Imported the new file name
+import 'sale_visit_check_in.dart';
 
+/// =============================================================
+/// ROUTINE VISITATION STRATEGY & SCHEDULING MANAGEMENT VIEW
+/// =============================================================
 class VisitPlanPage extends StatefulWidget {
   const VisitPlanPage({super.key});
 
@@ -21,7 +24,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
   bool isLoading = true;
 
   List<VisitPlan> allPlans = [];
-
   List<VisitPlan> todayPlans = [];
   List<VisitPlan> tomorrowPlans = [];
   List<VisitPlan> yesterdayPlans = [];
@@ -29,7 +31,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
   List<VisitPlan> previousPlans = [];
 
   List<VisitPlan> filteredPlans = [];
-
   String searchQuery = "";
 
   final DateFormat dateFormat = DateFormat('dd-MM-yyyy');
@@ -47,8 +48,17 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     _loadVisitPlans();
   }
 
-  /// ================= LOAD VISIT PLANS
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  /// =============================================================
+  /// LOAD VISIT PLANS & MAP STRATIFIED TIMELINES
+  /// =============================================================
   Future<void> _loadVisitPlans() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -58,43 +68,40 @@ class _VisitPlanPageState extends State<VisitPlanPage>
       bool sameDay(DateTime a, DateTime b) =>
           a.year == b.year && a.month == b.month && a.day == b.day;
 
-      setState(() {
-        allPlans = plans;
+      if (mounted) {
+        setState(() {
+          allPlans = plans;
 
-        todayPlans = plans.where((p) => sameDay(p.visitDate, now)).toList();
+          todayPlans = plans.where((p) => sameDay(p.visitDate, now)).toList();
+          tomorrowPlans = plans.where((p) => sameDay(p.visitDate, now.add(const Duration(days: 1)))).toList();
+          yesterdayPlans = plans.where((p) => sameDay(p.visitDate, now.subtract(const Duration(days: 1)))).toList();
 
-        tomorrowPlans = plans
-            .where((p) => sameDay(p.visitDate, now.add(const Duration(days: 1))))
-            .toList();
+          upcomingPlans = plans.where((p) {
+            return p.visitDate.isAfter(now.add(const Duration(days: 1))) && !sameDay(p.visitDate, now.add(const Duration(days: 1)));
+          }).toList();
 
-        yesterdayPlans = plans
-            .where((p) => sameDay(p.visitDate, now.subtract(const Duration(days: 1))))
-            .toList();
+          previousPlans = plans.where((p) {
+            return p.visitDate.isBefore(now.subtract(const Duration(days: 1))) && !sameDay(p.visitDate, now.subtract(const Duration(days: 1)));
+          }).toList();
 
-        upcomingPlans = plans.where((p) {
-          return p.visitDate.isAfter(now.add(const Duration(days: 1)));
-        }).toList();
-
-        previousPlans = plans.where((p) {
-          return p.visitDate.isBefore(now.subtract(const Duration(days: 1)));
-        }).toList();
-
-        filteredPlans = plans;
-        isLoading = false;
-      });
+          filteredPlans = plans;
+          isLoading = false;
+        });
+      }
     } catch (e) {
       print("Error loading visit plans: $e");
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 
-  /// ================= SEARCH
+  /// =============================================================
+  /// SEARCH ROUTINE TEXT QUERY FILTERING
+  /// =============================================================
   void _filterSearch(String query) {
     final q = query.toLowerCase().trim();
 
     setState(() {
       searchQuery = q;
-
       filteredPlans = allPlans.where((p) {
         return p.cardCode.toLowerCase().contains(q) ||
             p.cardName.toLowerCase().contains(q) ||
@@ -105,160 +112,205 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     });
   }
 
-  /// ================= DETAIL ROW
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              "$label :",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value.isEmpty ? "-" : value,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
+  /// =============================================================
+  /// MODERNIZED VISITATION CARD SPECIFICATION RENDERING
+  /// =============================================================
   Widget _buildCard(VisitPlan plan, {bool isToday = false}) {
     final isDone = plan.status.toLowerCase() == "done";
     final isSynced = plan.synced.toLowerCase() == "yes";
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      elevation: 2,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-      ),
-      child: ExpansionTile(
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: isDone ? Colors.green.shade100 : Colors.blue.shade100,
-          child: Icon(
-            isDone ? Icons.check_circle : Icons.location_on,
-            color: isDone ? Colors.green : Colors.blue,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              plan.cardCode,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.blueGrey,
-              ),
+        ],
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          childrenPadding: const EdgeInsets.only(left: 14, right: 14, bottom: 14, top: 0),
+          leading: CircleAvatar(
+            radius: 22,
+            backgroundColor: isDone ? const Color(0xFFECFDF5) : const Color(0xFFEFF6FF),
+            child: Icon(
+              isDone ? Icons.check_circle_rounded : Icons.directions_run_rounded,
+              color: isDone ? const Color(0xFF10B981) : const Color(0xFF1D4ED8),
+              size: 22,
             ),
-            const SizedBox(height: 4),
-            Text(
-              plan.cardName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-                color: Colors.black87,
+          ),
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      plan.cardCode,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSynced ? const Color(0xFFEFF6FF) : const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      isSynced ? "SYNCED" : "PENDING",
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isSynced ? const Color(0xFF1D4ED8) : const Color(0xFFC2410C),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 6),
-            Row(
+              const SizedBox(height: 6),
+              Text(
+                plan.cardName.isEmpty ? "-" : plan.cardName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                const SizedBox(width: 5),
+                const Icon(Icons.calendar_today_rounded, size: 12, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 4),
                 Text(
                   dateFormat.format(plan.visitDate),
-                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                 ),
-                const SizedBox(width: 10),
-                const Icon(Icons.phone, size: 14, color: Colors.grey),
-                const SizedBox(width: 5),
+                const SizedBox(width: 12),
+                const Icon(Icons.phone_iphone_rounded, size: 13, color: Color(0xFF94A3B8)),
+                const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     plan.tel1.isEmpty ? "-" : plan.tel1,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-        children: [
-          const Divider(),
-          _row("Address", plan.fullAddress),
-          _row("Remark", plan.remark),
-          _row("Status", plan.status),
-          _row("Synced", plan.synced),
-          _row("Doc No", plan.docNum),
-          _row("Doc Year", plan.docYear.toString()),
-          _row("Detail Entry", plan.detailEntry.toString()),
-          if (isToday)
-            Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: SizedBox(
-                width: double.infinity,
-                height: 45,
-                child: ElevatedButton.icon(
-                  icon: Icon(isSynced ? Icons.check_circle : Icons.navigation),
-                  label: Text(
-                    isSynced ? "Already Visited" : "Start Visit",
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isSynced ? Colors.grey : const Color(0xFF1976D2),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+          ),
+          trailing: const Icon(Icons.expand_more_rounded, color: Color(0xFF94A3B8)),
+          children: [
+            const Divider(color: Color(0xFFF1F5F9), height: 1),
+            const SizedBox(height: 12),
+
+            // Two-Column Grid for Plan Details
+            Row(
+              children: [
+                Expanded(child: _infoBlock("Document No", plan.docNum)),
+                Expanded(child: _infoBlock("Doc Fiscal Year", plan.docYear.toString())),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(child: _infoBlock("Visitation Status", plan.status.toUpperCase())),
+                Expanded(child: _infoBlock("Detail Key Entry", plan.detailEntry.toString())),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _infoBlock("Geographic Location Address", plan.fullAddress.isEmpty ? "No direct registration address reported." : plan.fullAddress),
+            if (plan.remark.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _infoBlock("Scheduler Special Remarks", plan.remark),
+            ],
+
+            if (isToday)
+              Padding(
+                padding: const EdgeInsets.only(top: 14),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    icon: Icon(isSynced ? Icons.verified_rounded : Icons.near_me_rounded, size: 18),
+                    label: Text(
+                      isSynced ? "Already Visited" : "Start Visit",
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.3),
                     ),
-                  ),
-                  onPressed: isSynced
-                      ? null
-                      : () {
-                    // ✅ UPDATED: Links smoothly to SaleVisitCheckInPage
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => SaleVisitCheckInPage(
-                          customer: CustomerVisit(
-                            cardCode: plan.cardCode,
-                            cardName: plan.cardName,
-                            phone: plan.tel1,
-                            fullAddress: plan.fullAddress,
-                            detailEntry: plan.detailEntry,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isSynced ? const Color(0xFF94A3B8) : const Color(0xFF1E3A8A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: isSynced
+                        ? null
+                        : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SaleVisitCheckInPage(
+                            customer: CustomerVisit(
+                              cardCode: plan.cardCode,
+                              cardName: plan.cardName,
+                              phone: plan.tel1,
+                              fullAddress: plan.fullAddress,
+                              detailEntry: plan.detailEntry,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// ================= TAB CONTENT
+  Widget _infoBlock(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 3),
+        Text(
+          value.isEmpty ? "-" : value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF334155),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// =============================================================
+  /// TAB DYNAMIC VIEW CONTENT DISPATCHER
+  /// =============================================================
   Widget _buildTab(
       List<VisitPlan> plans, {
         bool searchable = false,
@@ -273,10 +325,17 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     }
 
     if (data.isEmpty) {
-      return const Center(
-        child: Text(
-          "No visit plans",
-          style: TextStyle(fontSize: 15),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.assignment_turned_in_rounded, size: 44, color: Colors.grey.shade300),
+            const SizedBox(height: 10),
+            const Text(
+              "No structural visit plans listed",
+              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ],
         ),
       );
     }
@@ -284,21 +343,21 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     return Column(
       children: [
         if (searchable)
-          Padding(
-            padding: const EdgeInsets.all(10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: const Color(0xFF1E3A8A),
             child: TextField(
               onChanged: _filterSearch,
+              style: const TextStyle(fontSize: 14),
               decoration: InputDecoration(
-                hintText: "Search customer, code, phone...",
-                prefixIcon: const Icon(Icons.search),
+                hintText: "Search customer, code, phone query...",
+                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey),
                 filled: true,
-                fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 10,
-                ),
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -308,6 +367,7 @@ class _VisitPlanPageState extends State<VisitPlanPage>
           child: RefreshIndicator(
             onRefresh: _loadVisitPlans,
             child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 6),
               physics: const AlwaysScrollableScrollPhysics(),
               itemCount: data.length,
               itemBuilder: (context, index) {
@@ -323,32 +383,33 @@ class _VisitPlanPageState extends State<VisitPlanPage>
     );
   }
 
-  /// ================= UI
+  /// =============================================================
+  /// MAIN ROUTINE TREE BUILDER
+  /// =============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF1976D2),
+        backgroundColor: const Color(0xFF1E3A8A),
         iconTheme: const IconThemeData(color: Colors.white),
         title: const Text(
-          "Visit Plan",
+          "Visit Plan Manager",
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 17,
+            fontSize: 16,
           ),
         ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           indicatorColor: Colors.white,
+          indicatorWeight: 3,
           labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          labelStyle: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: [
             Tab(text: "Yesterday (${yesterdayPlans.length})"),
             Tab(text: "Today (${todayPlans.length})"),

@@ -4,16 +4,21 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:kuberadmsdn/Sale/vistit_plan.dart';
+import 'package:kuberadmsdn/api/login_api.dart'; // Added to resolve SalesCode via SessionManager
+import '../api/save_checkout_api.dart';        // Adjust this import path to match your CheckOutService location
 import 'models/customer_visit_model.dart';
 
 class SaleVisitNoBuyPage extends StatefulWidget {
   final CustomerVisit customer;
-  final String? initialReason; // Pass reason if selected from the previous screen
+  final String? initialReason;
+  final String? checkInPrimaryKey; // Added to pass the database reference ID from the check-in step
 
   const SaleVisitNoBuyPage({
     super.key,
     required this.customer,
     this.initialReason,
+    this.checkInPrimaryKey, // Received contextually from the parent page
   });
 
   @override
@@ -40,10 +45,12 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
     "Other (See notes)"
   ];
 
+  // Instantiate your checkout service dependency
+  final CheckOutService _checkOutService = CheckOutService();
+
   @override
   void initState() {
     super.initState();
-    // Pre-populate dropdown if selection exists
     if (widget.initialReason != null && _noBuyReasons.contains(widget.initialReason)) {
       _selectedNoBuyReason = widget.initialReason;
     }
@@ -54,17 +61,16 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
     final ImagePicker picker = ImagePicker();
     try {
       final XFile? photo = await picker.pickImage(
-        source: ImageSource.camera, // ❌ Strict requirement: strictly camera only
+        source: ImageSource.camera,
         imageQuality: 40,
       );
 
-      if (photo == null) return; // User canceled camera view
+      if (photo == null) return;
 
       setState(() {
         _checkoutPhoto = File(photo.path);
       });
 
-      // Fetch precise checkout coordinates right after the photo is secured
       _fetchCheckoutGPS();
     } catch (e) {
       _showErrorDialog("Camera access error: ${e.toString()}");
@@ -98,7 +104,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
     }
   }
 
-  /// Final Submissions Logic pipeline
+  /// Final Submissions Logic pipeline integrated with CheckOutService
   Future<void> _submitNoBuyCheckout() async {
     if (_selectedNoBuyReason == null) {
       _showErrorDialog("Please specify a reason why the client is not purchasing.");
@@ -112,26 +118,51 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      // TODO: Place your API post block here to submit data back up stream.
-      // Payload variables available:
-      // widget.customer.cardCode
-      // _selectedNoBuyReason
-      // _notesController.text
-      // _checkoutPosition.latitude / longitude
-      // _checkoutPhoto
+      final DateTime executionTime = DateTime.now();
 
-      await Future.delayed(const Duration(seconds: 1)); // Mock Network overhead delay
+      // Compile reason and optional notes into the remark text field
+      final String remarkText = _notesController.text.trim().isEmpty
+          ? "No-Buy Reason: $_selectedNoBuyReason"
+          : "No-Buy Reason: $_selectedNoBuyReason | Notes: ${_notesController.text.trim()}";
+
+      // Dynamically extract the active session values safely
+      final String currentSalesCode = SessionManager.currentUser?.slpCode ?? "";
+      final String targetDocEntry = widget.checkInPrimaryKey.toString();
+
+      // Call the endpoint via your service layer mapping strategy
+      final responseData = await _checkOutService.submitCheckOut(
+        mode: "Add", // Update workflow flags context relative to matching baseline check-ins
+        docEntry: targetDocEntry,
+        checkOutDate: executionTime,
+        checkOutLat: _checkoutPosition!.latitude,
+        checkOutLng: _checkoutPosition!.longitude,
+        checkOutRemark: remarkText,
+        salesCode: currentSalesCode,
+        imageFiles: [_checkoutPhoto!], // Wraps single local file target into expected list element
+      );
 
       setState(() => _isSubmitting = false);
 
-      if (!mounted) return;
+      if (responseData != null && responseData['success'] == true) {
+        if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Checkout completed successfully.'), backgroundColor: Colors.green),
-      );
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('✅ Checkout completed successfully.'),
+              backgroundColor: Colors.green
+          ),
+        );
 
-      // Return clean back to customer schedule menu tree
-      Navigator.of(context).popUntil((route) => route.isFirst);
+        // 🔄 CHANGE THIS: Clear stack completely and rebuild VisitPlanPage fresh
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const VisitPlanPage()),
+              (route) => route.isFirst, // Keeps your main/home menu screen alive underneath
+        );
+      } else {
+        final errorMessage = responseData != null ? responseData['message'] : "Server failed or validation rejected.";
+        throw errorMessage ?? "Unknown response payload schema.";
+      }
     } catch (e) {
       setState(() => _isSubmitting = false);
       _showErrorDialog("Submission Error: ${e.toString()}");
@@ -163,7 +194,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         elevation: 0.5,
-        backgroundColor: Colors.orange.shade800, // Visual change signaling exception record
+        backgroundColor: Colors.orange.shade800,
         foregroundColor: Colors.white,
         title: Text(
           "No-Buy Checkout: ${widget.customer.cardName}",
@@ -208,6 +239,10 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
                 children: [
                   Text(widget.customer.cardCode, style: TextStyle(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold)),
                   Text(widget.customer.cardName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black)),
+                  if (widget.checkInPrimaryKey != null) ...[
+                    const SizedBox(height: 2),
+                    Text("Check-In Ref ID: ${widget.checkInPrimaryKey}", style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.w500)),
+                  ]
                 ],
               ),
             ),

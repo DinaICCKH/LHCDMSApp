@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:kuberadmsdn/Sale/sale_unplan.dart';
-import '../api/get_customer_api.dart' as api; // Your customer class lives here
+import 'package:kuberadmsdn/api/login_api.dart';
+import 'package:kuberadmsdn/api/save_checkin_api.dart';
+import '../api/get_customer_api.dart' as api;
 import 'models/customer_visit_model.dart';
 import 'sale_visit_no_buy_page.dart';
 
@@ -32,10 +34,17 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
 
   // Workflow Control States
   bool _hasSubmittedCheckIn = false;
+  bool _isSubmittingApi = false;
+
+  // Variable to hold the primary key from the API response
+  String? _checkInPrimaryKey;
 
   // Visit Outcome States
   String? _visitOutcome;
   String? _selectedNoBuyReason;
+
+  // Controllers
+  final TextEditingController _checkInRemarkController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
   final List<String> _noBuyReasons = [
@@ -47,16 +56,15 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
     "Other (See notes)"
   ];
 
-  /// ✅ LOCAL MAPPER HELPER
-  /// Converts CustomerVisit into your rigid final api.Customer object safely
-  /// without changing your original API class structure!
+  // Initialize your exact service
+  final CheckInService _checkInService = CheckInService();
+
   api.Customer _convertToApiCustomer(CustomerVisit visitData) {
     return api.Customer(
       cardCode: visitData.cardCode,
       cardName: visitData.cardName,
       tel1: visitData.phone ?? '',
       fullAddress: visitData.fullAddress ?? '',
-      // Fill the remaining required final fields with default safe values
       code: 0,
       message: '',
       cardFName: '',
@@ -73,7 +81,6 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
     );
   }
 
-  /// Force Camera Hardware Capture (Gallery selection is completely omitted)
   Future<void> _openHardwareCamera() async {
     final ImagePicker picker = ImagePicker();
     try {
@@ -94,7 +101,6 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
     }
   }
 
-  /// Internal location processing
   Future<void> _fetchGPSLocation() async {
     setState(() => _isLocating = true);
     try {
@@ -121,21 +127,74 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
     }
   }
 
-  /// Verification point before expanding options block
-  void _submitArrivalTelemetry() {
+  /// Maps UI inputs to fulfill your unmodified CheckInService signature requirements
+  Future<void> _submitArrivalTelemetry() async {
     if (_capturedPhoto == null || _currentPosition == null) {
       _showErrorDialog("Incomplete records. Ensure camera snap and GPS signals are solid.");
       return;
     }
 
     setState(() {
-      _hasSubmittedCheckIn = true;
-      _notesController.text = "";
+      _isSubmittingApi = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Check-In submission finalized!'), backgroundColor: Colors.green),
-    );
+    try {
+      final DateTime now = DateTime.now();
+
+      // Fallback fallback string if the text field is empty
+      final String remarkText = _checkInRemarkController.text.trim().isEmpty
+          ? "Storefront open"
+          : _checkInRemarkController.text.trim();
+      final currentUserCode = SessionManager.currentUser?.userCode ?? "Admin";
+      final currentSalesCode = SessionManager.currentUser?.slpCode ?? "";
+
+      // Calling your service with all its original parameters mapped correctly
+      final responseData = await _checkInService.submitCheckIn(
+        mode: "Add",
+        docEntry: "1",
+        detailEntry: widget.customer.detailEntry.toString(),
+        cardCode: widget.customer.cardCode,
+        checkInDate: now,                                    // Passes current DateTime object
+        checkOutDate: now.add(const Duration(minutes: 15)),   // Placeholder checkout time
+        checkInLat: _currentPosition!.latitude,
+        checkInLng: _currentPosition!.longitude,
+        checkOutLat: _currentPosition!.latitude,              // Reusing check-in lat for checkout field
+        checkOutLng: _currentPosition!.longitude,              // Reusing check-in lng for checkout field
+        checkInRemark: remarkText,
+        checkOutRemark: "No orders today",                    // Consistent fallback string
+        checkStatus: "CheckIn",                               // Defaulted as requested
+        appOrderEntry: "null",                                // Transmits literal string "null"
+        dmsOrderEntry: "null",
+        salesCode: currentSalesCode,
+        userSign: currentUserCode,
+        imageFile: _capturedPhoto!,
+      );
+
+      if (responseData != null) {
+        if (responseData['success'] == true) {
+          setState(() {
+            _checkInPrimaryKey = responseData['primaryKey']?.toString();
+            _hasSubmittedCheckIn = true;
+            _notesController.text = "";
+            _isSubmittingApi = false;
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('✅ Check-In Recorded! ID: $_checkInPrimaryKey'),
+                backgroundColor: Colors.green
+            ),
+          );
+        } else {
+          throw responseData['message'] ?? "API failed validation backend side.";
+        }
+      } else {
+        throw "No response returned from the check-in network service.";
+      }
+    } catch (err) {
+      setState(() => _isSubmittingApi = false);
+      _showErrorDialog("Error occurred: $err");
+    }
   }
 
   void _showErrorDialog(String message) {
@@ -151,39 +210,101 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
     );
   }
 
+  /// Displays confirmation layout dialog box before leaving an active submission session
+  Future<bool> _showExitConfirmationDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 22),
+            SizedBox(width: 8),
+            Text('Discard Check-In?', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'You have already verified your check-in entry status (ID: $_checkInPrimaryKey).\n\nLeaving this screen without recording a "Buy" or "No Buy" outcome will disrupt form sync workflows. Proceed anyway?',
+          style: const TextStyle(fontSize: 12),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false), // User stays on form page
+            child: const Text('Stay & Finish', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true), // Confirms and pops screen structure back
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            ),
+            child: const Text('Discard Session', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
   @override
   void dispose() {
+    _checkInRemarkController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        elevation: 0.5,
-        backgroundColor: const Color(0xFF1976D2),
-        foregroundColor: Colors.white,
-        title: Text(
-          "Check-In: ${widget.customer.cardName}",
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCustomerHeader(),
-            const SizedBox(height: 12),
-            _buildCheckInCard(),
+    return PopScope(
+      canPop: !_hasSubmittedCheckIn, // Allow normal popping only if check-in hasn't happened yet
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
 
-            if (_hasSubmittedCheckIn) ...[
+        // Triggers dialog if system back key/gesture is triggered
+        final shouldPop = await _showExitConfirmationDialog();
+        if (shouldPop && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey.shade100,
+        appBar: AppBar(
+          elevation: 0.5,
+          backgroundColor: const Color(0xFF1976D2),
+          foregroundColor: Colors.white,
+          title: Text(
+            "Check-In: ${widget.customer.cardName}",
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () async {
+              if (_hasSubmittedCheckIn) {
+                final shouldPop = await _showExitConfirmationDialog();
+                if (shouldPop && context.mounted) {
+                  Navigator.of(context).pop();
+                }
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCustomerHeader(),
               const SizedBox(height: 12),
-              _buildVisitOutcomeCard(),
+              _buildCheckInCard(),
+
+              if (_hasSubmittedCheckIn) ...[
+                const SizedBox(height: 12),
+                _buildVisitOutcomeCard(),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -260,7 +381,7 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _openHardwareCamera,
+                      onPressed: _isSubmittingApi ? null : _openHardwareCamera,
                       icon: const Icon(Icons.camera_alt, size: 15),
                       label: Text(_capturedPhoto == null ? "Open Camera & Capture" : "Retake Store Photo", style: const TextStyle(fontSize: 12)),
                       style: ElevatedButton.styleFrom(
@@ -289,20 +410,40 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
               else
                 const Text("⚠️ Photo and GPS tracking required before submission.", style: TextStyle(fontSize: 11, color: Colors.black38)),
 
-              const Divider(height: 20),
+              const SizedBox(height: 12),
+
+              // Check-In Remark User Field
+              const Text("Check-In Remark", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _checkInRemarkController,
+                maxLines: 1,
+                style: const TextStyle(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: "e.g., Storefront open / Customer waiting...",
+                  hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                ),
+              ),
+
+              const Divider(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 height: 42,
                 child: ElevatedButton(
-                  onPressed: (_capturedPhoto == null || _currentPosition == null || _isLocating) ? null : _submitArrivalTelemetry,
+                  onPressed: (_capturedPhoto == null || _currentPosition == null || _isLocating || _isSubmittingApi) ? null : _submitArrivalTelemetry,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF1976D2),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade300,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text("Submit Check-In Metrics", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: _isSubmittingApi
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text("Submit Check-In Metrics", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ),
             ] else ...[
@@ -326,8 +467,13 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                           ],
                         ),
                         const SizedBox(height: 4),
+                        Text("Remark: ${_checkInRemarkController.text.isEmpty ? 'Storefront open' : _checkInRemarkController.text}", style: const TextStyle(fontSize: 11, color: Colors.black54)),
                         Text("Lat: ${_currentPosition?.latitude.toStringAsFixed(6)} / Long: ${_currentPosition?.longitude.toStringAsFixed(6)}",
                             style: const TextStyle(fontSize: 11, color: Colors.black54)),
+                        if (_checkInPrimaryKey != null) ...[
+                          const SizedBox(height: 2),
+                          Text("Database Reference ID: $_checkInPrimaryKey", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                        ]
                       ],
                     ),
                   ),
@@ -384,6 +530,8 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                           builder: (_) => SaleVisitNoBuyPage(
                             customer: widget.customer,
                             initialReason: _selectedNoBuyReason,
+                            // 🚀 PASS THE PRIMARY KEY VALUE HERE
+                            checkInPrimaryKey: _checkInPrimaryKey,
                           ),
                         ),
                       ).then((_) {
@@ -407,7 +555,6 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                 height: 42,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // ✅ Uses the local conversion helper down below to pass a perfectly built Customer object
                     final apiCustomer = _convertToApiCustomer(widget.customer);
 
                     Navigator.push(
@@ -465,7 +612,7 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                 height: 42,
                 child: ElevatedButton(
                   onPressed: _selectedNoBuyReason == null ? null : () {
-                    // Execute checkout submission
+                    // Action for checkout submission
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange.shade800,
