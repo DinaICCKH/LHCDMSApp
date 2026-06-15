@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// Your Project API & Module Imports
 import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
 import 'Sale/sale_unplan.dart';
@@ -16,19 +15,14 @@ import 'api/login_api.dart';
 import 'login/login.dart';
 import 'sync/sync.dart';
 import 'api/get_saleorder_summary_api.dart';
-
-// Master API imports used for deep dashboard pull-to-refresh
 import 'api/get_customer_api.dart';
 import 'api/get_item_api.dart';
 import 'api/get_visitplan_api.dart';
 
 Future<void> _requestAppPermissions() async {
-  final statuses = await [
-    Permission.camera,
-    Permission.location,
-  ].request();
+  final statuses = await [Permission.camera, Permission.location].request();
   statuses.forEach((permission, status) {
-    print("Permission $permission => $status");
+    debugPrint("Permission $permission => $status");
   });
 }
 
@@ -38,6 +32,8 @@ void main() async {
   runApp(const DMSApp());
 }
 
+// ─── App Root ────────────────────────────────────────────────────────────────
+
 class DMSApp extends StatelessWidget {
   const DMSApp({super.key});
 
@@ -46,32 +42,42 @@ class DMSApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        useMaterial3: true,
         fontFamily: "Roboto",
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1976D2),
-          background: const Color(0xFFF8FAFC),
-        ),
-        textTheme: const TextTheme(
-          bodyMedium: TextStyle(color: Colors.black87, letterSpacing: 0.15),
+          seedColor: const Color(0xFF1565C0),
+          background: const Color(0xFFF1F5F9),
         ),
       ),
-      home: const LoginPageWrapper(),
+      home: const LoginPage(),
     );
   }
 }
 
-class LoginPageWrapper extends StatelessWidget {
-  const LoginPageWrapper({super.key});
+// ─── Design Tokens ───────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return const LoginPage();
-  }
+abstract class _T {
+  static const navy      = Color(0xFF0D1B3E);
+  static const navyMid   = Color(0xFF1A2D5A);
+  static const blue      = Color(0xFF1565C0);
+  static const blueLight = Color(0xFF1E88E5);
+  static const blueTint  = Color(0xFFE3F0FF);
+  static const bg        = Color(0xFFF1F5F9);
+  static const card      = Colors.white;
+  static const divider   = Color(0xFFE8EDF4);
+  static const textPrimary   = Color(0xFF0D1B3E);
+  static const textSecondary = Color(0xFF64748B);
+  static const textMuted     = Color(0xFF94A3B8);
+  static const amber   = Color(0xFFF59E0B);
+  static const teal    = Color(0xFF0D9488);
+  static const violet  = Color(0xFF7C3AED);
+  static const rose    = Color(0xFFE11D48);
+  static const emerald = Color(0xFF059669);
+  static const cyan    = Color(0xFF0891B2);
+  static const orange  = Color(0xFFEA580C);
 }
 
-////////////////////////////////////////////////////////
-/// SCROLLABLE DASHBOARD PAGE WITH PREMIUM UI
-////////////////////////////////////////////////////////
+// ─── Dashboard Page ───────────────────────────────────────────────────────────
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -80,730 +86,848 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
-  String userName = "Loading...";
+class _DashboardPageState extends State<DashboardPage>
+    with TickerProviderStateMixin {
+  String userName    = "Loading...";
   String companyName = "";
-  bool _isReloading = false;
+  bool _isReloading  = false;
 
-  // Sync Master Metrics
-  int itemCount = 0;
-  int customerCount = 0;
-  int visitPlanCount = 0;
+  int    itemCount        = 0;
+  int    customerCount    = 0;
+  int    visitPlanCount   = 0;
+  double totalSaleAmount  = 0.0;
+  int    totalQtyInvoice  = 0;
+  int    pendingSyncCount = 0;
 
-  // Sale Summary Fields parsed from encoded API array structures
-  double totalSaleAmount = 0.0;
-  int totalQtyInvoice = 0;
-  int pendingSyncCount = 0;
+  AnimationController? _fadeCtrl;
+  Animation<double>?   _fadeAnim;
 
   @override
   void initState() {
     super.initState();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 550),
+    );
+    _fadeAnim = CurvedAnimation(
+      parent: _fadeCtrl!,
+      curve: Curves.easeOut,
+    );
     _loadUser();
-    _loadSyncMetrics();
+    _loadSyncMetrics().then((_) {
+      if (mounted) _fadeCtrl?.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fadeCtrl?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUser() async {
     final user = SessionManager.currentUser;
     if (!mounted) return;
     setState(() {
-      userName = user?.name ?? "Unknown User";
+      userName    = user?.name        ?? "Unknown User";
       companyName = user?.companyName ?? "";
     });
   }
 
-  /// Parses the exact database list arrays populated by your Sync screen
   Future<void> _loadSyncMetrics() async {
     final prefs = await SharedPreferences.getInstance();
+    int localItems = 0, localCustomers = 0, localVisitPlans = 0;
 
-    // 1. Fetch Master row counts from local cache storage methods
-    int localItems = 0;
-    int localCustomers = 0;
-    int localVisitPlans = 0;
+    try { localItems      = (await ItemApi.getLocalItems()).length;        } catch (_) {}
+    try { localCustomers  = (await CustomerApi.getLocalCustomers()).length; } catch (_) {}
+    try { localVisitPlans = (await VisitPlanApi.getLocalVisitPlans()).length; } catch (_) {}
 
-    try {
-      final itemsData = await ItemApi.getLocalItems();
-      localItems = itemsData.length;
-    } catch (_) {}
-
-    try {
-      final customersData = await CustomerApi.getLocalCustomers();
-      localCustomers = customersData.length;
-    } catch (_) {}
-
-    try {
-      final visitPlansData = await VisitPlanApi.getLocalVisitPlans();
-      localVisitPlans = visitPlansData.length;
-    } catch (_) {}
-
-    // 2. Decode the encoded string object produced by SaleSummaryApi
     double amt = 0.0;
-    int qty = 0;
-    int pending = 0;
-
-    final String? jsonStr = prefs.getString(SaleSummaryApi.localKey);
+    int qty = 0, pending = 0;
+    final jsonStr = prefs.getString(SaleSummaryApi.localKey);
     if (jsonStr != null) {
       try {
-        final List<dynamic> jsonList = jsonDecode(jsonStr);
-        if (jsonList.isNotEmpty) {
-          // Extract the summary metrics data node out of item index 0
-          final summaryMap = jsonList.first as Map<String, dynamic>;
-          final summaryObj = SaleSummary.fromJson(summaryMap);
-
-          amt = summaryObj.totalAmt;
-          qty = summaryObj.total;
-          pending = summaryObj.pendingSync;
+        final list = jsonDecode(jsonStr) as List<dynamic>;
+        if (list.isNotEmpty) {
+          final obj = SaleSummary.fromJson(list.first as Map<String, dynamic>);
+          amt     = obj.totalAmt;
+          qty     = obj.total;
+          pending = obj.pendingSync;
         }
-      } catch (e) {
-        print("❌ Error parsing saved layout map string: $e");
-      }
-    } else {
-      // Fallback default mock parameters to display when cache states are completely empty
-      amt = 7062.00;
-      qty = 38;
-      pending = 1444;
+      } catch (_) {}
     }
 
     if (!mounted) return;
     setState(() {
-      itemCount = localItems;
-      customerCount = localCustomers;
-      visitPlanCount = localVisitPlans;
-
-      totalSaleAmount = amt;
-      totalQtyInvoice = qty;
+      itemCount        = localItems;
+      customerCount    = localCustomers;
+      visitPlanCount   = localVisitPlans;
+      totalSaleAmount  = amt;
+      totalQtyInvoice  = qty;
       pendingSyncCount = pending;
     });
   }
 
-  /// Refreshes data from remote API endpoints on demand
   Future<void> _handleRefresh() async {
     if (_isReloading) return;
-    setState(() {
-      _isReloading = true;
-    });
-
+    setState(() => _isReloading = true);
     try {
-      // Execute live updates using your custom api module classes
       await SaleSummaryApi.fetchAndStoreSaleSummary(password: "123456");
-
-      // Optionally uncomment below if you want the swipe engine to update masters too:
-      // final prefs = await SharedPreferences.getInstance();
-      // final uCode = prefs.getString("codeUser") ?? "U001";
-      // final dId = prefs.getString("deviceID") ?? "UNKNOWN";
-      // await ItemApi.fetchAndStoreItems(userCode: uCode, password: "123456", deviceID: dId);
-    } catch (e) {
-      print("❌ Background sync refresh failed: $e");
-    }
-
-    // Force interface re-parse from memory space
+    } catch (_) {}
     await _loadSyncMetrics();
-
     if (!mounted) return;
-    setState(() {
-      _isReloading = false;
-    });
-
+    setState(() => _isReloading = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: const [
-            Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-            SizedBox(width: 10),
-            Text("Metrics synchronized perfectly", style: TextStyle(fontWeight: FontWeight.w600)),
-          ],
-        ),
+        content: const Row(children: [
+          Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+          SizedBox(width: 10),
+          Text("Dashboard synced",
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        ]),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF1976D2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        backgroundColor: _T.emerald,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         duration: const Duration(seconds: 2),
       ),
     );
   }
 
   Future<void> _logout({bool autoLogout = false}) async {
-    bool shouldLogout = true;
-
+    bool should = true;
     if (!autoLogout) {
-      shouldLogout = await showDialog<bool>(
+      should = await showDialog<bool>(
         context: context,
         barrierDismissible: true,
-        builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 14,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.logout_rounded, size: 40, color: Colors.red.shade600),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  "Confirm Logout",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  "Are you sure you want to log out of your session?",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Colors.black54),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey.shade300),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: Text("Cancel", style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade600,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text("Logout", style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        builder: (ctx) => _LogoutDialog(
+          onConfirm: () => Navigator.pop(ctx, true),
+          onCancel:  () => Navigator.pop(ctx, false),
         ),
       ) ?? false;
     }
-
-    if (shouldLogout) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
+    if (should) {
+      final p = await SharedPreferences.getInstance();
+      await p.clear();
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const LoginPage()),
-            (route) => false,
+            (_) => false,
       );
     }
   }
 
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
+  }
+
+  String _formattedDate() {
+    const months = ["Jan","Feb","Mar","Apr","May","Jun",
+      "Jul","Aug","Sep","Oct","Nov","Dec"];
+    const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    final now = DateTime.now();
+    return "${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}";
+  }
+
+  void _push(Widget page) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
   @override
   Widget build(BuildContext context) {
+    final anim = _fadeAnim ?? const AlwaysStoppedAnimation(1.0);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F9FC),
-      body: Stack(
+      backgroundColor: _T.bg,
+      body: Column(
         children: [
-          Positioned(
-            top: -60,
-            right: -60,
-            child: CircleAvatar(radius: 130, backgroundColor: const Color(0xFF1976D2).withOpacity(0.05)),
-          ),
-          Positioned(
-            top: 250,
-            left: -80,
-            child: CircleAvatar(radius: 110, backgroundColor: const Color(0xFF00E676).withOpacity(0.03)),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: RefreshIndicator(
-                    color: const Color(0xFF1976D2),
-                    backgroundColor: Colors.white,
-                    strokeWidth: 2.5,
-                    onRefresh: _handleRefresh,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _sectionTitle("Overview Metrics"),
-                              IconButton(
-                                onPressed: _handleRefresh,
-                                iconSize: 18,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                visualDensity: VisualDensity.compact,
-                                icon: _isReloading
-                                    ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1976D2)),
-                                )
-                                    : const Icon(Icons.refresh_rounded, color: Color(0xFF1976D2)),
-                              )
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          ReportSection(
-                            items: itemCount,
-                            customers: customerCount,
-                            plans: visitPlanCount,
-                            totalAmt: totalSaleAmount,
-                            totalQty: totalQtyInvoice,
-                            pendingSync: pendingSyncCount,
-                          ),
-
-                          const SizedBox(height: 22),
-
-                          _sectionTitle("Operations Hub"),
-                          const SizedBox(height: 8),
-                          const MenuSection(),
-
-                          const SizedBox(height: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const AppInfoRow(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.85),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF1976D2).withOpacity(0.04),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                )
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: GestureDetector(
-                    onTap: () async {
-                      final choice = await showMenu<String>(
-                        context: context,
-                        position: const RelativeRect.fromLTRB(16, 80, 200, 0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 8,
-                        items: [
-                          PopupMenuItem<String>(
-                            value: 'logout',
-                            child: Row(
-                              children: const [
-                                Icon(Icons.logout_rounded, color: Colors.redAccent, size: 18),
-                                SizedBox(width: 10),
-                                Text('Log Out', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                      if (choice == 'logout') _logout();
+          _HeroHeader(
+            userName:    userName,
+            companyName: companyName,
+            greeting:    _greeting(),
+            date:        _formattedDate(),
+            isReloading: _isReloading,
+            onSync: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SyncDataPage(
+                    initialCounts: {
+                      "Item":         itemCount,
+                      "Customer":     customerCount,
+                      "Visit Plan":   visitPlanCount,
+                      "Sale Summary": totalQtyInvoice,
                     },
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFF1976D2).withOpacity(0.2), width: 1.5),
-                          ),
-                          child: CircleAvatar(
-                            radius: 16,
-                            backgroundColor: const Color(0xFFE3F2FD),
-                            child: const Icon(Icons.person_rounded, size: 18, color: Color(0xFF1976D2)),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                userName,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w800),
-                              ),
-                              if (companyName.isNotEmpty)
-                                const SizedBox(height: 1),
-                              if (companyName.isNotEmpty)
-                                Text(
-                                  companyName,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ),
-                Row(
-                  children: [
-                    _headerIconBtn(Icons.sync_rounded, color: const Color(0xFF1976D2), isPrimary: true, onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SyncDataPage(
-                            initialCounts: {
-                              "Item": itemCount,
-                              "Customer": customerCount,
-                              "Visit Plan": visitPlanCount,
-                              "Sale Summary": totalQtyInvoice,
-                            },
-                          ),
+              );
+              _loadSyncMetrics();
+            },
+            onNotification: () {},
+            onAvatarTap: () async {
+              final choice = await showMenu<String>(
+                context: context,
+                position: const RelativeRect.fromLTRB(16, 120, 200, 0),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                elevation: 10,
+                items: [
+                  PopupMenuItem<String>(
+                    value: 'logout',
+                    child: Row(children: const [
+                      Icon(Icons.logout_rounded, color: _T.rose, size: 17),
+                      SizedBox(width: 10),
+                      Text('Log Out',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _T.textPrimary)),
+                    ]),
+                  ),
+                ],
+              );
+              if (choice == 'logout') _logout();
+            },
+          ),
+          Expanded(
+            child: FadeTransition(
+              opacity: anim,
+              child: RefreshIndicator(
+                color: _T.blue,
+                backgroundColor: Colors.white,
+                strokeWidth: 2.5,
+                onRefresh: _handleRefresh,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Overview section label ──
+                      _SectionLabel(
+                        label: "Overview",
+                        trailing: _isReloading
+                            ? const SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: _T.blue),
+                        )
+                            : GestureDetector(
+                          onTap: _handleRefresh,
+                          child: const Icon(Icons.refresh_rounded,
+                              color: _T.blue, size: 18),
                         ),
-                      );
-                      _loadSyncMetrics();
-                    }),
-                    const SizedBox(width: 8),
-                    _headerIconBtn(Icons.notifications_none_rounded, color: const Color(0xFF64748B), isPrimary: false),
-                  ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // ── Sale hero card (shorter) ──
+                      _SaleHeroCard(
+                        amount:     totalSaleAmount,
+                        qtyInvoice: totalQtyInvoice,
+                        onTap: () => _push(const SaleOrderListingPage()),
+                      ),
+                      const SizedBox(height: 5),
+
+                      // ── Metrics grid — 1 row of 4 ──
+                      _MetricsGrid(
+                        itemCount:        itemCount,
+                        customerCount:    customerCount,
+                        visitPlanCount:   visitPlanCount,
+                        pendingSyncCount: pendingSyncCount,
+                        onItemTap: () => _push(const ItemMasterPage()),
+                        onCustomerTap: () => _push(const CustomerMasterPage()),
+                        onVisitPlanTap: () => _push(const VisitPlanPage()),
+                        onPendingSyncTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SyncDataPage(
+                                initialCounts: {
+                                  "Item":         itemCount,
+                                  "Customer":     customerCount,
+                                  "Visit Plan":   visitPlanCount,
+                                  "Sale Summary": totalQtyInvoice,
+                                },
+                              ),
+                            ),
+                          );
+                          _loadSyncMetrics();
+                        },
+                      ),
+
+                      const SizedBox(height: 5),
+                      const _SectionLabel(label: "Operations"),
+                      const SizedBox(height: 5),
+
+                      _OperationsGrid(
+                        itemCount:       itemCount,
+                        customerCount:   customerCount,
+                        visitPlanCount:  visitPlanCount,
+                        totalQtyInvoice: totalQtyInvoice,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _headerIconBtn(IconData icon, {required Color color, required bool isPrimary, VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(9),
-        decoration: BoxDecoration(
-          color: isPrimary ? const Color(0xFFE3F2FD) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isPrimary ? Colors.transparent : Colors.grey.shade200,
-            width: 1,
-          ),
-        ),
-        child: Icon(icon, color: color, size: 18),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Text(
-        title,
-        style: const TextStyle(
-            color: Color(0xFF0F172A),
-            fontSize: 14,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.2),
+          const _AppFooter(),
+        ],
       ),
     );
   }
 }
 
-////////////////////////////////////////////////////////
-/// UPGRADED METRIC COMPONENT LISTS WITH SEMANTIC LABELS
-////////////////////////////////////////////////////////
+// ─── Hero Header  (CHANGED: bright blue gradient) ─────────────────────────────
 
-class ReportSection extends StatelessWidget {
-  final int items;
-  final int customers;
-  final int plans;
-  final double totalAmt;
-  final int totalQty;
-  final int pendingSync;
+class _HeroHeader extends StatelessWidget {
+  final String userName;
+  final String companyName;
+  final String greeting;
+  final String date;
+  final bool isReloading;
+  final VoidCallback onSync;
+  final VoidCallback onNotification;
+  final VoidCallback onAvatarTap;
 
-  const ReportSection({
-    super.key,
-    required this.items,
-    required this.customers,
-    required this.plans,
-    required this.totalAmt,
-    required this.totalQty,
-    required this.pendingSync,
+  const _HeroHeader({
+    required this.userName,
+    required this.companyName,
+    required this.greeting,
+    required this.date,
+    required this.isReloading,
+    required this.onSync,
+    required this.onNotification,
+    required this.onAvatarTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _SaleOrderSpecialCard(amount: totalAmt, qtyInvoice: totalQty),
-        const SizedBox(height: 8),
-        GridView(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 2.6,
-          ),
+    return Container(
+      // ✅ CHANGED: bright vivid blue gradient instead of dark navy
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Stack(
           children: [
-            _StandardMetricCard(
-              title: "Total Item",
-              value: "$items",
-              icon: Icons.inventory_2_rounded,
-              accentColor: Colors.amber,
-              baseBgColor: const Color(0xFFFFF9E6),
+            Positioned(
+              top: -30, right: -20,
+              child: Container(
+                width: 140, height: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.07),
+                ),
+              ),
             ),
-            _StandardMetricCard(
-              title: "Total Customer",
-              value: "$customers",
-              icon: Icons.supervised_user_circle_rounded,
-              accentColor: Colors.teal,
-              baseBgColor: const Color(0xFFE0F2F1),
+            Positioned(
+              bottom: -40, left: 40,
+              child: Container(
+                width: 100, height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
             ),
-            _StandardMetricCard(
-              title: "Total Visit Plan",
-              value: "$plans",
-              icon: Icons.explore_rounded,
-              accentColor: Colors.purple,
-              baseBgColor: const Color(0xFFF3E5F5),
-            ),
-            _StandardMetricCard(
-              title: "Pending sync",
-              value: "$pendingSync",
-              icon: Icons.cloud_upload_rounded,
-              accentColor: Colors.redAccent,
-              baseBgColor: const Color(0xFFFFEBEE),
+            Padding(
+              // ✅ Slightly reduced bottom padding to keep header compact
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: onAvatarTap,
+                        child: Row(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.35),
+                                    width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 12,
+                                  )
+                                ],
+                              ),
+                              child: CircleAvatar(
+                                radius: 20,
+                                backgroundColor:
+                                Colors.white.withOpacity(0.18),
+                                child: const Icon(Icons.person_rounded,
+                                    size: 20, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(greeting,
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.80),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.3,
+                                    )),
+                                const SizedBox(height: 1),
+                                Text(userName,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.1,
+                                    )),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          _HdrBtn(
+                            icon: isReloading
+                                ? Icons.hourglass_empty_rounded
+                                : Icons.sync_rounded,
+                            onTap: onSync,
+                            highlighted: true,
+                          ),
+                          const SizedBox(width: 8),
+                          _HdrBtn(
+                            icon: Icons.notifications_none_rounded,
+                            onTap: onNotification,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      if (companyName.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.25)),
+                          ),
+                          child: Text(companyName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3,
+                              )),
+                        ),
+                      const Spacer(),
+                      Text(date,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.70),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          )),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
 
-class _SaleOrderSpecialCard extends StatelessWidget {
-  final double amount;
-  final int qtyInvoice;
-
-  const _SaleOrderSpecialCard({required this.amount, required this.qtyInvoice});
+class _HdrBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool highlighted;
+  const _HdrBtn(
+      {required this.icon, required this.onTap, this.highlighted = false});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.shopping_bag_rounded, color: Color(0xFF1976D2), size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text(
-                      "Total sale amount",
-                      style: TextStyle(color: Color(0xFF334155), fontSize: 13, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      "$qtyInvoice Total Qty invoice",
-                      style: const TextStyle(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 2),
-                  child: Text(
-                    "\$${amount.toStringAsFixed(2)}",
-                    style: const TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: highlighted
+              ? Colors.white.withOpacity(0.20)
+              : Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.20)),
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
       ),
     );
   }
 }
 
-class _StandardMetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final IconData icon;
-  final Color accentColor;
-  final Color baseBgColor;
+// ─── Sale Hero Card  (CHANGED: shorter vertical padding & smaller font) ────────
 
-  const _StandardMetricCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.accentColor,
-    required this.baseBgColor,
+class _SaleHeroCard extends StatefulWidget {
+  final double amount;
+  final int qtyInvoice;
+  final VoidCallback onTap;
+  const _SaleHeroCard(
+      {required this.amount, required this.qtyInvoice, required this.onTap});
+
+  @override
+  State<_SaleHeroCard> createState() => _SaleHeroCardState();
+}
+
+class _SaleHeroCardState extends State<_SaleHeroCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: ()  => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1565C0).withOpacity(0.30),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              )
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20, top: -20,
+                child: Container(
+                  width: 100, height: 100,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.06),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 30, bottom: -25,
+                child: Container(
+                  width: 70, height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.04),
+                  ),
+                ),
+              ),
+              // ✅ CHANGED: reduced vertical padding from 18 → 12 (shorter card)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text("TOTAL SALES",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                              )),
+                        ),
+                        const SizedBox(height: 6),
+                        // ✅ CHANGED: font size 28 → 22 for a shorter card
+                        Text(
+                          "\$${widget.amount.toStringAsFixed(2)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.receipt_long_rounded,
+                                size: 12,
+                                color: Colors.white.withOpacity(0.7)),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${widget.qtyInvoice} invoiced qty",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.75),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.18)),
+                          ),
+                          child: const Icon(Icons.shopping_bag_rounded,
+                              color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Text("View",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                            const SizedBox(width: 3),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 9,
+                                color: Colors.white.withOpacity(0.5)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Metrics Grid  (CHANGED: 4 columns → 1 row) ───────────────────────────────
+
+class _MetricsGrid extends StatelessWidget {
+  final int itemCount;
+  final int customerCount;
+  final int visitPlanCount;
+  final int pendingSyncCount;
+  final VoidCallback onItemTap;
+  final VoidCallback onCustomerTap;
+  final VoidCallback onVisitPlanTap;
+  final VoidCallback onPendingSyncTap;
+
+  const _MetricsGrid({
+    required this.itemCount,
+    required this.customerCount,
+    required this.visitPlanCount,
+    required this.pendingSyncCount,
+    required this.onItemTap,
+    required this.onCustomerTap,
+    required this.onVisitPlanTap,
+    required this.onPendingSyncTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.015),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          )
-        ],
+    final metrics = [
+      _MetricData("Items",        "$itemCount",
+          Icons.inventory_2_rounded,             _T.amber,  const Color(0xFFFFFBEB), onItemTap),
+      _MetricData("Customers",    "$customerCount",
+          Icons.supervised_user_circle_rounded,  _T.teal,   const Color(0xFFECFDF5), onCustomerTap),
+      _MetricData("Visit Plans",  "$visitPlanCount",
+          Icons.explore_rounded,                 _T.violet, const Color(0xFFF5F3FF), onVisitPlanTap),
+      _MetricData("Pending Sync", "$pendingSyncCount",
+          Icons.cloud_upload_rounded,            _T.rose,   const Color(0xFFFFF1F2), onPendingSyncTap),
+    ];
+
+    // ✅ CHANGED: crossAxisCount 2 → 4  (single row), compact aspect ratio
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: metrics.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 0.82, // tall-ish cards fit icon + label + value
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: baseBgColor,
-              borderRadius: BorderRadius.circular(10),
+      itemBuilder: (_, i) => _MetricCard(data: metrics[i]),
+    );
+  }
+}
+
+class _MetricData {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+  final Color bg;
+  final VoidCallback onTap;
+  const _MetricData(
+      this.label, this.value, this.icon, this.accent, this.bg, this.onTap);
+}
+
+class _MetricCard extends StatefulWidget {
+  final _MetricData data;
+  const _MetricCard({required this.data});
+
+  @override
+  State<_MetricCard> createState() => _MetricCardState();
+}
+
+class _MetricCardState extends State<_MetricCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); widget.data.onTap(); },
+      onTapCancel: ()  => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _T.card,
+            borderRadius: BorderRadius.circular(14),
+            // ✅ CHANGED: top accent border instead of left (fits portrait card)
+            border: Border(
+              top: BorderSide(color: widget.data.accent, width: 3),
             ),
-            child: Icon(icon, color: accentColor, size: 18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              )
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 9, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: widget.data.bg,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(widget.data.icon,
+                      color: widget.data.accent, size: 16),
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  value,
-                  style: const TextStyle(color: Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w900),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                const SizedBox(height: 6),
+                Text(widget.data.value,
+                    style: const TextStyle(
+                      color: _T.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      height: 1.1,
+                    )),
+                const SizedBox(height: 2),
+                Text(widget.data.label,
+                    style: const TextStyle(
+                      color: _T.textMuted,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
-////////////////////////////////////////////////////////
-/// COMPACT MENU HUB WITH SHADOW DEPTH
-////////////////////////////////////////////////////////
+// ─── Operations Grid ──────────────────────────────────────────────────────────
 
-class MenuSection extends StatelessWidget {
-  const MenuSection({super.key});
+class _OperationsGrid extends StatelessWidget {
+  final int itemCount;
+  final int customerCount;
+  final int visitPlanCount;
+  final int totalQtyInvoice;
+
+  const _OperationsGrid({
+    required this.itemCount,
+    required this.customerCount,
+    required this.visitPlanCount,
+    required this.totalQtyInvoice,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final menuItems = [
-      _MenuItem(
-        "Sale Order",
-        Icons.add_shopping_cart_rounded,
-        const Color(0xFFE3F2FD),
-        const Color(0xFF1976D2),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SaleUnplanPage())),
-      ),
-      _MenuItem(
-        "Sale Listing",
-        Icons.description_rounded,
-        const Color(0xFFFFF3E0),
-        const Color(0xFFE65100),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SaleOrderListingPage())),
-      ),
-      _MenuItem(
-        "Visit Plan",
-        Icons.map_rounded,
-        const Color(0xFFE8F5E9),
-        const Color(0xFF2E7D32),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitPlanPage())),
-      ),
-      _MenuItem(
-        "Visited List",
-        Icons.fact_check_rounded,
-        const Color(0xFFF3E5F5),
-        const Color(0xFF7B1FA2),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const VisitedListPage(),
-            ),
-          );
-        },
-      ),
-      _MenuItem(
-        "Customer",
-        Icons.supervised_user_circle_rounded,
-        const Color(0xFFE0F7FA),
-        const Color(0xFF006064),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerMasterPage())),
-      ),
-      _MenuItem(
-        "Item Master",
-        Icons.category_rounded,
-        const Color(0xFFFFEBEE),
-        const Color(0xFFC62828),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ItemMasterPage())),
-      ),
+    final ops = [
+      _OpItem("Sale Order",   Icons.add_shopping_cart_rounded,
+          const Color(0xFFDBEAFE), _T.blue,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const SaleUnplanPage()))),
+      _OpItem("Sale Listing", Icons.description_rounded,
+          const Color(0xFFFEF3C7), _T.orange,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const SaleOrderListingPage()))),
+      _OpItem("Visit Plan",   Icons.map_rounded,
+          const Color(0xFFDCFCE7), _T.emerald,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const VisitPlanPage()))),
+      _OpItem("Visited List", Icons.fact_check_rounded,
+          const Color(0xFFF5F3FF), _T.violet,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const VisitedListPage()))),
+      _OpItem("Customers",    Icons.supervised_user_circle_rounded,
+          const Color(0xFFCCFBF1), _T.cyan,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const CustomerMasterPage()))),
+      _OpItem("Item Master",  Icons.category_rounded,
+          const Color(0xFFFFE4E6), _T.rose,
+          onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ItemMasterPage()))),
     ];
 
     return Column(
@@ -812,37 +936,38 @@ class MenuSection extends StatelessWidget {
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: menuItems.length,
+          itemCount: ops.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 1.15,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1.05,
           ),
-          itemBuilder: (_, i) => _MenuCard(item: menuItems[i]),
+          itemBuilder: (_, i) => _OpCard(item: ops[i]),
         ),
         const SizedBox(height: 12),
-        _FullWidthCard(
-          title: 'Report Section',
-          icon: Icons.analytics_rounded,
+        _ReportBanner(
           onTap: () {
-            ScaffoldMessenger.of(context).clearSnackBars();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: const [
-                    Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 20),
-                    SizedBox(width: 10),
-                    Text("Report feature is coming soon!", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                  ],
-                ),
-                backgroundColor: const Color(0xFF1E293B),
+            ScaffoldMessenger.of(context)
+              ..clearSnackBars()
+              ..showSnackBar(SnackBar(
+                content: const Row(children: [
+                  Icon(Icons.info_outline_rounded, color: _T.amber, size: 18),
+                  SizedBox(width: 10),
+                  Text("Reports coming soon!",
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 13)),
+                ]),
+                backgroundColor: _T.navyMid,
                 behavior: SnackBarBehavior.floating,
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                margin: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
                 duration: const Duration(seconds: 2),
-              ),
-            );
+              ));
           },
         ),
       ],
@@ -850,109 +975,280 @@ class MenuSection extends StatelessWidget {
   }
 }
 
-class _MenuItem {
+class _OpItem {
   final String title;
   final IconData icon;
   final Color iconBg;
   final Color iconColor;
   final VoidCallback? onTap;
-  _MenuItem(this.title, this.icon, this.iconBg, this.iconColor, {this.onTap});
+  const _OpItem(this.title, this.icon, this.iconBg, this.iconColor,
+      {this.onTap});
 }
 
-class _MenuCard extends StatelessWidget {
-  final _MenuItem item;
-  const _MenuCard({required this.item});
+class _OpCard extends StatefulWidget {
+  final _OpItem item;
+  const _OpCard({required this.item});
+
+  @override
+  State<_OpCard> createState() => _OpCardState();
+}
+
+class _OpCardState extends State<_OpCard> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: item.onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.015),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            )
-          ],
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); widget.item.onTap?.call(); },
+      onTapCancel: ()  => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _T.card,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              )
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 46, height: 46,
+                decoration: BoxDecoration(
+                  color: widget.item.iconBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(widget.item.icon,
+                    color: widget.item.iconColor, size: 22),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(widget.item.title,
+                    style: const TextStyle(
+                      color: _T.textPrimary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.1,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+              ),
+            ],
+          ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      ),
+    );
+  }
+}
+
+class _ReportBanner extends StatefulWidget {
+  final VoidCallback onTap;
+  const _ReportBanner({required this.onTap});
+
+  @override
+  State<_ReportBanner> createState() => _ReportBannerState();
+}
+
+class _ReportBannerState extends State<_ReportBanner> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown:   (_) => setState(() => _pressed = true),
+      onTapUp:     (_) { setState(() => _pressed = false); widget.onTap(); },
+      onTapCancel: ()  => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: double.infinity,
+          padding:
+          const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          decoration: BoxDecoration(
+            color: _T.navy,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: _T.navy.withOpacity(0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              )
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.analytics_rounded,
+                    color: Colors.white, size: 18),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Reports",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.1,
+                        )),
+                    SizedBox(height: 2),
+                    Text("Analytics & insights coming soon",
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        )),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward_rounded,
+                  color: Colors.white.withOpacity(0.4), size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Section Label ────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  final Widget? trailing;
+  const _SectionLabel({required this.label, this.trailing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              width: 3.5, height: 16,
               decoration: BoxDecoration(
-                color: item.iconBg,
-                borderRadius: BorderRadius.circular(12),
+                color: _T.blue,
+                borderRadius: BorderRadius.circular(4),
               ),
-              child: Icon(item.icon, color: item.iconColor, size: 20),
             ),
-            const SizedBox(height: 8),
-            Text(
-              item.title,
-              style: const TextStyle(
-                color: Color(0xFF334155),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            const SizedBox(width: 8),
+            Text(label,
+                style: const TextStyle(
+                  color: _T.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.1,
+                )),
           ],
         ),
-      ),
+        if (trailing != null) trailing!,
+      ],
     );
   }
 }
 
-class _FullWidthCard extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final VoidCallback? onTap;
-  const _FullWidthCard({required this.title, required this.icon, this.onTap});
+// ─── Logout Dialog ────────────────────────────────────────────────────────────
+
+class _LogoutDialog extends StatelessWidget {
+  final VoidCallback onConfirm;
+  final VoidCallback onCancel;
+  const _LogoutDialog(
+      {required this.onConfirm, required this.onCancel});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1E88E5), Color(0xFF1565C0)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1565C0).withOpacity(0.25),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            )
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    return Dialog(
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24)),
+      elevation: 0,
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.3,
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: _T.rose.withOpacity(0.08),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.logout_rounded,
+                  size: 36, color: _T.rose),
             ),
-            const SizedBox(width: 6),
-            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 10),
+            const SizedBox(height: 16),
+            const Text("Sign Out?",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: _T.textPrimary,
+                )),
+            const SizedBox(height: 6),
+            const Text("You will be returned to the login screen.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 13,
+                    color: _T.textSecondary,
+                    height: 1.5)),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                          color: _T.divider, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding:
+                      const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: onCancel,
+                    child: const Text("Cancel",
+                        style: TextStyle(
+                            color: _T.textSecondary,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _T.rose,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      padding:
+                      const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: onConfirm,
+                    child: const Text("Sign Out",
+                        style:
+                        TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -960,21 +1256,28 @@ class _FullWidthCard extends StatelessWidget {
   }
 }
 
-class AppInfoRow extends StatelessWidget {
-  const AppInfoRow({super.key});
+// ─── App Footer ───────────────────────────────────────────────────────────────
+
+class _AppFooter extends StatelessWidget {
+  const _AppFooter();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.symmetric(vertical: 11),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade100, width: 1)),
+        border: Border(top: BorderSide(color: _T.divider, width: 1)),
       ),
       child: const Text(
-        "ICCKH | Version v1.0.1 | © 2026 ICCKH.",
-        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w600),
+        "ICCKH  |  v1.0.1  |  2026",
+        style: TextStyle(
+          color: _T.textMuted,
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+        ),
         textAlign: TextAlign.center,
       ),
     );

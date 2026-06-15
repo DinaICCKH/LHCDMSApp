@@ -1,4 +1,4 @@
-package com.example.kuberadmsdn
+package com.vongdina.kuberadmsdn
 
 import io.flutter.embedding.android.FlutterActivity
 
