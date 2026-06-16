@@ -44,10 +44,10 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
 
   final Map<String, String> _statusOptions = {
     "All": "All Statuses",
-    "D": "Draft",
-    "O": "Official",
-    "C": "Closed",
-    "L": "Cancelled",
+    "Draft": "Draft",
+    "Approved": "Approved",
+    "Rejected": "Rejected",
+    "Cancelled": "Cancelled",
   };
 
   @override
@@ -216,7 +216,7 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
     Color textColor = Colors.grey.shade700;
 
     if (isSync) {
-      if (label == "Y") {
+      if (label == "I") {
         label = "Synced";
         bgColor = Colors.green.shade50;
         textColor = Colors.green.shade700;
@@ -229,23 +229,23 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
       switch (label) {
         case "D":
           label = "Draft";
-          bgColor = Colors.blue.shade50;
-          textColor = Colors.blue.shade700;
+          bgColor = Colors.black87;
+          textColor = Colors.white;
           break;
-        case "O":
-          label = "Official";
+        case "I":
+          label = "Approved";
           bgColor = Colors.green.shade50;
           textColor = Colors.green.shade700;
           break;
-        case "C":
-          label = "Closed";
+        case "R":
+          label = "Rejected";
           bgColor = Colors.purple.shade50;
           textColor = Colors.purple.shade700;
           break;
-        case "L":
-          label = "Cancelled";
-          bgColor = Colors.red.shade50;
-          textColor = Colors.red.shade700;
+        case "S":
+          label = "Sync to SAP";
+          bgColor = Colors.blue.shade50;
+          textColor = Colors.blue.shade700;
           break;
       }
     }

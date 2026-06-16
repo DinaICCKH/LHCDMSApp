@@ -37,14 +37,11 @@ class SaleController extends ChangeNotifier {
   TimeOfDay? deliveryTime;
 
   // ── Computed ──────────────────────────────────────────────────────────────
-
-
   double get subTotal => selectedItems.fold(0.0, (sum, i) {
-    // If promotion has been calculated and updated lineTotal, use it.
-    // Otherwise, fall back to gross calculation (price * qty).
+    // Works for both: uses net promotional total if available, otherwise calculates standard gross.
     final double finalLineVal = (i.lineTotal != null && i.lineTotal! > 0)
         ? i.lineTotal!
-        : (i.price * i.qty);
+        : ((i.qty ?? 0) * (i.price ?? 0)).toDouble();
     return sum + finalLineVal;
   });
 
@@ -71,8 +68,6 @@ class SaleController extends ChangeNotifier {
     notifyListeners();
 
     items = await itemApi.ItemApi.getLocalItems();
-
-
 
     isLoadingItem = false;
     notifyListeners();
@@ -262,7 +257,6 @@ class SaleController extends ChangeNotifier {
     percent = percent.clamp(0.0, 100.0);
 
     discountPercent = percent;
-    // Multiplies against our updated net-line subtotal accumulation!
     discountAmount = subTotal * percent / 100;
 
     notifyListeners();
@@ -325,11 +319,11 @@ class SaleController extends ChangeNotifier {
           lineNum: entry.key + 1,
           cardCode: selectedCustomer!.cardCode,
           itemCode: item.itemCode,
-          qty: item.qty.toDouble(),
+          qty: (item.qty ?? 0).toDouble(),
           discountPer: discountPercent,
           uom: item.uom,
-          price: item.price.toDouble(),
-          lineTotal: (item.qty * item.price).toDouble(),
+          price: (item.price ?? 0).toDouble(),
+          lineTotal: ((item.qty ?? 0) * (item.price ?? 0)).toDouble(),
           reason: "PROMO",
           docDate: now.toIso8601String().split("T").first,
           paymentMethod: paymentMethodValue,
@@ -408,7 +402,7 @@ class SaleController extends ChangeNotifier {
             subGroup2Des: item.subGroup2Des,
             uInvDiscountPer: 0,
             uInvDicountAmt: 0,
-            disAmt: item.price * freeQty,
+            disAmt: (item.price ?? 0) * freeQty,
             discPrcnt: 100,
             lineTotal: 0,
             uRemarkOther12: "FREE_ITEM",
@@ -418,77 +412,77 @@ class SaleController extends ChangeNotifier {
       }
 
       // ── NORMAL PROMOTION ────────────────────────────────────────────────
-      double discountPer = item.uInvDiscountPer;
-      double discountAmt = item.uInvDicountAmt;
+      double discountPer = item.uInvDiscountPer ?? 0;
+      double discountAmt = item.uInvDicountAmt ?? 0;
 
-      double invPaymentAmt = item.uInvPaymentAmt;
-      double paymentPer = item.uPaymentPer;
-      double paymentAmt = item.uPaymentAmt;
-      double invPaymentPer = item.uInvPaymentPer;
+      double invPaymentAmt = item.uInvPaymentAmt ?? 0;
+      double paymentPer = item.uPaymentPer ?? 0;
+      double paymentAmt = item.uPaymentAmt ?? 0;
+      double invPaymentPer = item.uInvPaymentPer ?? 0;
 
-      double InOther9 = item.uInOther9;
-      double MnOther9 = item.uMnOther9;
-      String remark9 = item.uRemarkOther9;
+      double InOther9 = item.uInOther9 ?? 0;
+      double MnOther9 = item.uMnOther9 ?? 0;
+      String remark9 = item.uRemarkOther9 ?? "";
 
-      double InOther10 = item.uInOther10;
-      double MnOther10 = item.uMnOther10;
-      String remark10 = item.uRemarkOther10;
+      double InOther10 = item.uInOther10 ?? 0;
+      double MnOther10 = item.uMnOther10 ?? 0;
+      String remark10 = item.uRemarkOther10 ?? "";
 
-      double InOther11 = item.uInOther11;
-      double MnOther11 = item.uMnOther11;
-      String remark11 = item.uRemarkOther11;
+      double InOther11 = item.uInOther11 ?? 0;
+      double MnOther11 = item.uMnOther11 ?? 0;
+      String remark11 = item.uRemarkOther11 ?? "";
 
-      double InOther12 = item.uInOther12;
-      double MnOther12 = item.uMnOther12;
-      String remark12 = item.uRemarkOther12;
+      double InOther12 = item.uInOther12 ?? 0;
+      double MnOther12 = item.uMnOther12 ?? 0;
+      String remark12 = item.uRemarkOther12 ?? "";
 
-      double specialAmt = item.uSpecialPriceAmt;
-      double specialPer = item.uSpecialPricePercent;
+      double specialAmt = item.uSpecialPriceAmt ?? 0;
+      double specialPer = item.uSpecialPricePercent ?? 0;
 
-      double voucherAmt = item.uInvVoucherAmt;
+      double voucherAmt = item.uInvVoucherAmt ?? 0;
 
-      double transportAmt = item.uInvTransportAmt;
-      double transportPer = item.uInvTransportPer;
-      double transportFAmt = item.uInvTransprtFAmt;
+      double transportAmt = item.uInvTransportAmt ?? 0;
+      double transportPer = item.uInvTransportPer ?? 0;
+      double transportFAmt = item.uInvTransprtFAmt ?? 0;
 
-      double invSpecialAmt = item.uInvSpecialAmt;
-      double invSpecialPer = item.uInvSpecialPer;
+      double invSpecialAmt = item.uInvSpecialAmt ?? 0;
+      double invSpecialPer = item.uInvSpecialPer ?? 0;
 
-      double specialTrAmt = item.uSpecialTrAmt;
-      double specialTrnPer = item.uSpecialTrnPer;
-      double invSpecialFreeAmt = item.uInvSpecialFreeAmt;
+      double specialTrAmt = item.uSpecialTrAmt ?? 0;
+      double specialTrnPer = item.uSpecialTrnPer ?? 0;
+      double invSpecialFreeAmt = item.uInvSpecialFreeAmt ?? 0;
 
-      double invCurrency = item.uInvCurrency;
-      double mnCurrency = item.uMnCurrency;
-      String remarkCurrency = item.uRemarkCurrency;
+      double invCurrency = item.uInvCurrency ?? 0;
+      double mnCurrency = item.uMnCurrency ?? 0;
+      String remarkCurrency = item.uRemarkCurrency ?? "";
 
-      double invFactory = item.uInvFactory;
-      double mnFactory = item.uMnFactory;
-      String remarkFactory = item.uRemarkFactory;
+      double invFactory = item.uInvFactory ?? 0;
+      double mnFactory = item.uMnFactory ?? 0;
+      String remarkFactory = item.uRemarkFactory ?? "";
 
-      double invTransportB7 = item.uInvTransportB7;
-      double mnTransportB7 = item.uMnTransportB7;
-      String remarkTransportB7 = item.uRemarkTransportB7;
+      double invTransportB7 = item.uInvTransportB7 ?? 0;
+      double mnTransportB7 = item.uMnTransportB7 ?? 0;
+      String remarkTransportB7 = item.uRemarkTransportB7 ?? "";
 
-      double invTransportB8 = item.uInvTransportB8;
-      double mnTransportB8 = item.uMnTransportB8;
-      String remarkTransportB8 = item.uRemarkTransportB8;
+      double invTransportB8 = item.uInvTransportB8 ?? 0;
+      double mnTransportB8 = item.uMnTransportB8 ?? 0;
+      String remarkTransportB8 = item.uRemarkTransportB8 ?? "";
 
-      double invEmployeeCom = item.uInvEmployeeCom;
-      double mnEmployeeCom = item.uMnEmployeeCom;
-      String remarkEmployeeCom = item.uRemarkEmployeeCom;
+      double invEmployeeCom = item.uInvEmployeeCom ?? 0;
+      double mnEmployeeCom = item.uMnEmployeeCom ?? 0;
+      String remarkEmployeeCom = item.uRemarkEmployeeCom ?? "";
 
-      double invDepotCom = item.uInvDepotCom;
-      double mnDepotCom = item.uMnDepotCom;
-      String remarkDepotCom = item.uRemarkDepotCom;
+      double invDepotCom = item.uInvDepotCom ?? 0;
+      double mnDepotCom = item.uMnDepotCom ?? 0;
+      String remarkDepotCom = item.uRemarkDepotCom ?? "";
 
-      double invQuarterCom = item.uInvQuarterCom;
-      double mnQuarterCom = item.uMnQuarterCom;
-      String remarkQuarterCom = item.uRemarkQuarterCom;
+      double invQuarterCom = item.uInvQuarterCom ?? 0;
+      double mnQuarterCom = item.uMnQuarterCom ?? 0;
+      String remarkQuarterCom = item.uRemarkQuarterCom ?? "";
 
-      double invMarketing = item.uInvMarketing;
-      double mnMarketing = item.uMnMarketing;
-      String remarkMarketing = item.uRemarkMarketing;
+      double invMarketing = item.uInvMarketing ?? 0;
+      double mnMarketing = item.uMnMarketing ?? 0;
+      String remarkMarketing = item.uRemarkMarketing ?? "";
 
       // ── Apply Promotion ────────────────────────────────────────────────
       switch (promo.promotionType) {
@@ -601,8 +595,8 @@ class SaleController extends ChangeNotifier {
           break;
       }
 
-      // ── Calculate Totals ───────────────────────────────────────────────
-      final grossTotal = item.qty * item.price;
+      final grossTotal = (item.qty ?? 0) * (item.price ?? 0);
+
       final totalDiscount = discountAmt +
           InOther9 +
           InOther10 +
@@ -724,9 +718,6 @@ class SaleController extends ChangeNotifier {
   // ─────────────────────────────────────────────
   // SAVE ORDER
   // ─────────────────────────────────────────────
-  /// Saves the order to SharedPreferences.
-  /// Returns true on success, false on failure.
-  /// The UI is responsible for showing the confirm dialog before calling this.
   Future<bool> saveOrder({required String remark}) async {
     if (selectedCustomer == null || selectedItems.isEmpty) return false;
 
@@ -736,10 +727,6 @@ class SaleController extends ChangeNotifier {
     try {
       final now = DateTime.now();
 
-      // ─────────────────────────────────────────────────────────────────
-      // ⏰ DATE FORMATTER: Removes trailing milliseconds/microseconds
-      // Transforms: "2026-05-18T13:39:34.495064" -> "2026-05-18T13:39:34"
-      // ─────────────────────────────────────────────────────────────────
       String formatIsoSeconds(DateTime dateTime) {
         final isoString = dateTime.toIso8601String();
         if (isoString.contains('.')) {
@@ -749,9 +736,6 @@ class SaleController extends ChangeNotifier {
       }
 
       final formattedTimestamp = formatIsoSeconds(now);
-
-
-
       final currentUserCode = SessionManager.currentUser?.userCode ?? "Admin";
       final currentSalesCode = SessionManager.currentUser?.slpCode ?? "";
 
@@ -782,13 +766,20 @@ class SaleController extends ChangeNotifier {
         uPaymentMethod: paymentMethodValue,
         uOwner: ownerValue,
 
-        createDate: formattedTimestamp, // 👈 Applied here
+        createDate: formattedTimestamp,
 
         checkInDate: "",
         checkOutDate: "",
 
         so1Lines: List.generate(selectedItems.length, (index) {
           final i = selectedItems[index];
+
+          // ── DYNAMIC FALLBACK SYSTEM ──
+          // If promotional calculation was completed, use that lineTotal.
+          // Otherwise, dynamically fallback to standard item configuration calculations.
+          final double finalCalculatedLineTotal = (i.lineTotal != null && i.lineTotal! > 0)
+              ? i.lineTotal!
+              : ((i.qty ?? 0) * (i.price ?? 0)).toDouble();
 
           return SaleOrderLine(
             docEntry: 0,
@@ -802,117 +793,100 @@ class SaleController extends ChangeNotifier {
             unitMsr: i.uom,
 
             price: i.price,
-            lineTotal: double.parse(i.lineTotal.toStringAsFixed(2)),
+            lineTotal: double.parse(finalCalculatedLineTotal.toStringAsFixed(2)),
 
             taxCode: "VATOUT00",
             whsCode: i.whsCode ?? "WH001",
 
-            // ───────── COST CENTER (NO FAKE DEFAULTS) ─────────
             ocrCode: i.ocrCode ?? "",
             ocrCode2: i.ocrCode2,
             ocrCode3: i.ocrCode3,
             ocrCode4: i.ocrCode4,
 
-            // ───────── PAYMENT ─────────
-            uInvPaymentAmt: double.parse(i.uInvPaymentAmt.toStringAsFixed(2)),
-            uPaymentPer: double.parse(i.uPaymentPer.toStringAsFixed(2)),
-            uPaymentAmt: double.parse(i.uPaymentAmt.toStringAsFixed(2)),
+            uInvPaymentAmt: double.parse((i.uInvPaymentAmt ?? 0).toStringAsFixed(2)),
+            uPaymentPer: double.parse((i.uPaymentPer ?? 0).toStringAsFixed(2)),
+            uPaymentAmt: double.parse((i.uPaymentAmt ?? 0).toStringAsFixed(2)),
 
-// ───────── DISCOUNT ─────────
-            uInvDiscountPer: double.parse(i.uInvDiscountPer.toStringAsFixed(2)),
-            uInvDicountAmt: double.parse(i.uInvDicountAmt.toStringAsFixed(2)),
-            uDiscPer: double.parse(i.uDiscPer.toStringAsFixed(2)),
-            uDiscAmt: double.parse(i.uDiscAmt.toStringAsFixed(2)),
+            uInvDiscountPer: double.parse((i.uInvDiscountPer ?? 0).toStringAsFixed(2)),
+            uInvDicountAmt: double.parse((i.uInvDicountAmt ?? 0).toStringAsFixed(2)),
+            uDiscPer: double.parse((i.uDiscPer ?? 0).toStringAsFixed(2)),
+            uDiscAmt: double.parse((i.uDiscAmt ?? 0).toStringAsFixed(2)),
 
-// ───────── VOUCHER ─────────
-            uInvVoucherAmt: double.parse(i.uInvVoucherAmt.toStringAsFixed(2)),
+            uInvVoucherAmt: double.parse((i.uInvVoucherAmt ?? 0).toStringAsFixed(2)),
             uVoucher: i.uVoucher ?? "",
             uVoucherNo: i.uVoucherNo ?? "",
 
-// ───────── TRANSPORT ─────────
-            uInvTransportAmt: double.parse(i.uInvTransportAmt.toStringAsFixed(2)),
-            uTransportationPercent: double.parse(i.uTransportationPercent.toStringAsFixed(2)),
-            uTransportationAmt: double.parse(i.uTransportationAmt.toStringAsFixed(2)),
+            uInvTransportAmt: double.parse((i.uInvTransportAmt ?? 0).toStringAsFixed(2)),
+            uTransportationPercent: double.parse((i.uTransportationPercent ?? 0).toStringAsFixed(2)),
+            uTransportationAmt: double.parse((i.uTransportationAmt ?? 0).toStringAsFixed(2)),
 
-// ───────── SPECIAL ─────────
-            uInvSpecialAmt: double.parse(i.uInvSpecialAmt.toStringAsFixed(2)),
-            uSpecialPricePercent: double.parse(i.uSpecialPricePercent.toStringAsFixed(2)),
-            uSpecialPriceAmt: double.parse(i.uSpecialPriceAmt.toStringAsFixed(2)),
+            uInvSpecialAmt: double.parse((i.uInvSpecialAmt ?? 0).toStringAsFixed(2)),
+            uSpecialPricePercent: double.parse((i.uSpecialPricePercent ?? 0).toStringAsFixed(2)),
+            uSpecialPriceAmt: double.parse((i.uSpecialPriceAmt ?? 0).toStringAsFixed(2)),
 
-// ───────── POLICY ─────────
-            uPolicyDisc: double.parse(i.uPolicyDisc.toStringAsFixed(2)),
-            uInvTransportPer: double.parse(i.uInvTransportPer.toStringAsFixed(2)),
-            uInvSpecialPer: double.parse(i.uInvSpecialPer.toStringAsFixed(2)),
-            uInvSpecialFreeAmt: double.parse(i.uInvSpecialFreeAmt.toStringAsFixed(2)),
-            uInvPaymentPer: double.parse(i.uInvPaymentPer.toStringAsFixed(2)),
+            uPolicyDisc: double.parse((i.uPolicyDisc ?? 0).toStringAsFixed(2)),
+            uInvTransportPer: double.parse((i.uInvTransportPer ?? 0).toStringAsFixed(2)),
+            uInvSpecialPer: double.parse((i.uInvSpecialPer ?? 0).toStringAsFixed(2)),
+            uInvSpecialFreeAmt: double.parse((i.uInvSpecialFreeAmt ?? 0).toStringAsFixed(2)),
+            uInvPaymentPer: double.parse((i.uInvPaymentPer ?? 0).toStringAsFixed(2)),
             uAddOnStatus: i.uAddOnStatus ?? "",
-            uInvTransprtFAmt: double.parse(i.uInvTransprtFAmt.toStringAsFixed(2)),
+            uInvTransprtFAmt: double.parse((i.uInvTransprtFAmt ?? 0).toStringAsFixed(2)),
 
-// ───────── CURRENCY ─────────
             uInvCurrency: double.parse((i.uInvCurrency ?? 0.0).toStringAsFixed(2)),
-            uMnCurrency: double.parse(i.uMnCurrency.toStringAsFixed(2)),
+            uMnCurrency: double.parse((i.uMnCurrency ?? 0).toStringAsFixed(2)),
             uRemarkCurrency: i.uRemarkCurrency ?? "",
 
-// ───────── FACTORY ─────────
             uInvFactory: double.parse((i.uInvFactory ?? 0.0).toStringAsFixed(2)),
-            uMnFactory: double.parse(i.uMnFactory.toStringAsFixed(2)),
+            uMnFactory: double.parse((i.uMnFactory ?? 0).toStringAsFixed(2)),
             uRemarkFactory: i.uRemarkFactory ?? "",
 
-// ───────── TRANSPORT B7 ─────────
-            uInvTransportB7: double.parse(i.uInvTransportB7.toStringAsFixed(2)),
-            uMnTransportB7: double.parse(i.uMnTransportB7.toStringAsFixed(2)),
+            uInvTransportB7: double.parse((i.uInvTransportB7 ?? 0).toStringAsFixed(2)),
+            uMnTransportB7: double.parse((i.uMnTransportB7 ?? 0).toStringAsFixed(2)),
             uRemarkTransportB7: i.uRemarkTransportB7 ?? "",
 
-// ───────── TRANSPORT B8 ─────────
-            uInvTransportB8: double.parse(i.uInvTransportB8.toStringAsFixed(2)),
-            uMnTransportB8: double.parse(i.uMnTransportB8.toStringAsFixed(2)),
+            uInvTransportB8: double.parse((i.uInvTransportB8 ?? 0).toStringAsFixed(2)),
+            uMnTransportB8: double.parse((i.uMnTransportB8 ?? 0).toStringAsFixed(2)),
             uRemarkTransportB8: i.uRemarkTransportB8 ?? "",
 
-// ───────── COMMISSION ─────────
-            uInvEmployeeCom: double.parse(i.uInvEmployeeCom.toStringAsFixed(2)),
-            uMnEmployeeCom: double.parse(i.uMnEmployeeCom.toStringAsFixed(2)),
+            uInvEmployeeCom: double.parse((i.uInvEmployeeCom ?? 0).toStringAsFixed(2)),
+            uMnEmployeeCom: double.parse((i.uMnEmployeeCom ?? 0).toStringAsFixed(2)),
             uRemarkEmployeeCom: i.uRemarkEmployeeCom ?? "",
 
-            uInvDepotCom: double.parse(i.uInvDepotCom.toStringAsFixed(2)),
-            uMnDepotCom: double.parse(i.uMnDepotCom.toStringAsFixed(2)),
+            uInvDepotCom: double.parse((i.uInvDepotCom ?? 0).toStringAsFixed(2)),
+            uMnDepotCom: double.parse((i.uMnDepotCom ?? 0).toStringAsFixed(2)),
             uRemarkDepotCom: i.uRemarkDepotCom ?? "",
 
-            uInvQuarterCom: double.parse(i.uInvQuarterCom.toStringAsFixed(2)),
-            uMnQuarterCom: double.parse(i.uMnQuarterCom.toStringAsFixed(2)),
+            uInvQuarterCom: double.parse((i.uInvQuarterCom ?? 0).toStringAsFixed(2)),
+            uMnQuarterCom: double.parse((i.uMnQuarterCom ?? 0).toStringAsFixed(2)),
             uRemarkQuarterCom: i.uRemarkQuarterCom ?? "",
 
-            uInvMarketing: double.parse(i.uInvMarketing.toStringAsFixed(2)),
-            uMnMarketing: double.parse(i.uMnMarketing.toStringAsFixed(2)),
+            uInvMarketing: double.parse((i.uInvMarketing ?? 0).toStringAsFixed(2)),
+            uMnMarketing: double.parse((i.uMnMarketing ?? 0).toStringAsFixed(2)),
             uRemarkMarketing: i.uRemarkMarketing ?? "",
 
-// ───────── OTHER ─────────
-            uInOther9: double.parse(i.uInOther9.toStringAsFixed(2)),
-            uMnOther9: double.parse(i.uMnOther9.toStringAsFixed(2)),
+            uInOther9: double.parse((i.uInOther9 ?? 0).toStringAsFixed(2)),
+            uMnOther9: double.parse((i.uMnOther9 ?? 0).toStringAsFixed(2)),
             uRemarkOther9: i.uRemarkOther9 ?? "",
 
-            uInOther10: double.parse(i.uInOther10.toStringAsFixed(2)),
-            uMnOther10: double.parse(i.uMnOther10.toStringAsFixed(2)),
+            uInOther10: double.parse((i.uInOther10 ?? 0).toStringAsFixed(2)),
+            uMnOther10: double.parse((i.uMnOther10 ?? 0).toStringAsFixed(2)),
             uRemarkOther10: i.uRemarkOther10 ?? "",
 
-            uInOther11: double.parse(i.uInOther11.toStringAsFixed(2)),
-            uMnOther11: double.parse(i.uMnOther11.toStringAsFixed(2)),
+            uInOther11: double.parse((i.uInOther11 ?? 0).toStringAsFixed(2)),
+            uMnOther11: double.parse((i.uMnOther11 ?? 0).toStringAsFixed(2)),
             uRemarkOther11: i.uRemarkOther11 ?? "",
 
-            uInOther12: double.parse(i.uInOther12.toStringAsFixed(2)),
-            uMnOther12: double.parse(i.uMnOther12.toStringAsFixed(2)),
+            uInOther12: double.parse((i.uInOther12 ?? 0).toStringAsFixed(2)),
+            uMnOther12: double.parse((i.uMnOther12 ?? 0).toStringAsFixed(2)),
             uRemarkOther12: i.uRemarkOther12 ?? "",
 
-// ───────── SPECIAL FINAL ─────────
-            uSpecialTrAmt: double.parse(i.uSpecialTrAmt.toStringAsFixed(2)),
-            uSpecialTrnPer: double.parse(i.uSpecialTrnPer.toStringAsFixed(2)),
-            uQtyFactory: double.parse(i.uQtyFactory.toStringAsFixed(2)),
+            uSpecialTrAmt: double.parse((i.uSpecialTrAmt ?? 0).toStringAsFixed(2)),
+            uSpecialTrnPer: double.parse((i.uSpecialTrnPer ?? 0).toStringAsFixed(2)),
+            uQtyFactory: double.parse((i.uQtyFactory ?? 0).toStringAsFixed(2)),
           );
         }),
       );
 
-      // ─────────────────────────────────────────────────────────────────
-      // 🔍 DEBUG: PRETTY PRINT PAYLOAD BEFORE SENDING TO API
-      // ─────────────────────────────────────────────────────────────────
       assert(() {
         try {
           const encoder = JsonEncoder.withIndent('  ');
@@ -933,7 +907,6 @@ class SaleController extends ChangeNotifier {
         return false;
       }
 
-      // save local backup (optional)
       final prefs = await SharedPreferences.getInstance();
       final existing = prefs.getStringList("localOrders") ?? [];
       existing.add(jsonEncode(payload.toJson()));
@@ -959,7 +932,7 @@ class SaleController extends ChangeNotifier {
     discountAmount = 0.0;
     ownerValue = "Admin";
     paymentMethodValue = "Invoice";
-    deliveryTime = TimeOfDay.now(); // 👈 NOT null
+    deliveryTime = TimeOfDay.now();
     isPromotionLocked = false;
     isRunningPromotion = false;
     isSaving = false;
