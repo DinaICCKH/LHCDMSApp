@@ -6,18 +6,21 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:kuberadmsdn/Sale/vistit_plan.dart';
 import 'package:kuberadmsdn/api/login_api.dart'; // Added to resolve SalesCode via SessionManager
+import '../api/get_visitplan_api.dart';       // Added to import VisitPlanApi for local status update
 import '../api/save_checkout_api.dart';        // Adjust this import path to match your CheckOutService location
 import 'models/customer_visit_model.dart';
 
 class SaleVisitNoBuyPage extends StatefulWidget {
   final CustomerVisit customer;
   final String? initialReason;
+  final int? detailEntry;           // 🚀 Added detailEntry parameter
   final String? checkInPrimaryKey; // Added to pass the database reference ID from the check-in step
 
   const SaleVisitNoBuyPage({
     super.key,
     required this.customer,
     this.initialReason,
+    this.detailEntry,
     this.checkInPrimaryKey, // Received contextually from the parent page
   });
 
@@ -47,6 +50,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
 
   // Instantiate your checkout service dependency
   final CheckOutService _checkOutService = CheckOutService();
+
 
   @override
   void initState() {
@@ -146,6 +150,11 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
       if (responseData != null && responseData['success'] == true) {
         if (!mounted) return;
 
+        // 🚀 1. Check if detailEntry exists and is greater than 0, then update local status
+        if (widget.detailEntry != null && widget.detailEntry! > 0) {
+          await VisitPlanApi.updateSyncedStatus(widget.detailEntry!);
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('✅ Checkout completed successfully.'),
@@ -153,7 +162,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
           ),
         );
 
-        // 🔄 CHANGE THIS: Clear stack completely and rebuild VisitPlanPage fresh
+        // 🔄 Clear stack completely and rebuild VisitPlanPage fresh
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const VisitPlanPage()),

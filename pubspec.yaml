@@ -11,31 +11,41 @@ dependencies:
   flutter:
     sdk: flutter
 
-  camera: ^0.11.3+7   # for camera access
+  # 📷 Camera
+  camera: ^0.11.3+7
 
-  # 🔐 storage
+  # 🔐 Storage
   shared_preferences: ^2.2.2
 
-  # 🌐 networking
+  # 🌐 Networking
   http: ^1.1.0
+  dio: ^5.4.0
 
-  # 📅 formatting
+  # 📅 Formatting
   intl: ^0.20.2
 
-  # 📷 media
+  # 📷 Media
   image_picker: ^1.0.4
 
-  # 📍 location
-  geolocator: ^12.0.0 # ✅ Updated to match your Dart 3.3.0 SDK compatibility profile safely
+  # 📍 Location
+  geolocator: ^12.0.0
   permission_handler: ^12.0.1
 
-  # 📱 device info
+  # 📱 Device Info
   device_info_plus: ^12.3.0
 
-  # 🍏 UI
+  # 🖼 UI
   cupertino_icons: ^1.0.8
 
-  dio: ^5.4.0  # Or the latest version
+  # 📄 PDF & Printing
+  pdf: ^3.11.3
+  printing: ^5.14.2
+
+  # 📸 Screenshot
+  screenshot: ^3.0.0
+
+  # 💾 Save image/PDF to gallery
+  gal: ^2.3.1
 
 dev_dependencies:
   flutter_test:
@@ -43,19 +53,19 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
 
-  # 🚀 app icon generator
+  # 🚀 App Icon Generator
   flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/logo.png
+    - assets/logo.jpg
 
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/logo.png"
+  image_path: "assets/logo.jpg"
 
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/logo.png" # ✅ Fixed text trailing typo bugs here
+  adaptive_icon_foreground: "assets/logo.jpg"

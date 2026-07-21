@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:kuberadmsdn/Sale/vistit_plan.dart';
 import 'package:kuberadmsdn/api/save_itemlogpromotion_api.dart';
 import '../api/get_customer_api.dart' as api;
 import '../api/get_item_api.dart' as itemApi;
 import '../api/get_promotionresult_api.dart';
+import '../api/get_visitplan_api.dart';
 import 'sale_unplan_controller.dart';
 import 'models/sale_order_model.dart';
 
@@ -17,11 +19,17 @@ const _kDanger   = Color(0xFFE53935);
 const _kSuccess  = Color(0xFF43A047);
 const _kOrange   = Color(0xFFFB8C00);
 
-// 1. Update the widget class constructor to accept an optional customer parameter
 class SaleUnplanPage extends StatefulWidget {
-  final api.Customer? customer; // ✅ Add this line
+  final api.Customer? customer;
+  final int? detailEntry;           // 🚀 Add this
+  final String? checkInPrimaryKey;  // 🚀 Add this
 
-  const SaleUnplanPage({super.key, this.customer}); // ✅ Update constructor
+  const SaleUnplanPage({
+    super.key,
+    this.customer,
+    this.detailEntry,               // 🚀 Add this to constructor
+    this.checkInPrimaryKey,         // 🚀 Add this to constructor
+  });
 
   @override
   State<SaleUnplanPage> createState() => _SaleUnplanPageState();
@@ -230,16 +238,43 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
     if (confirmed != true) return;
     if (!mounted) return;
 
+
+    // 🚀 3. Pass widget.detailEntry from the UI straight into the controller!
     final success = await controller.saveOrder(
       remark: remarkController.text.trim(),
+      detailEntry: widget.detailEntry, // <-- Handing over the value here
+      checkInPrimaryKey: widget.checkInPrimaryKey
     );
+
 
     if (!mounted) return;
 
     if (success) {
       _showSnack("Order saved successfully!");
+
+      // 🚀 1. Clear everything first using your reset function
       _resetUIState();
-    } else {
+
+      // 🚀 2. Conditionally handle where to go next
+      bool isVisitPlan = widget.detailEntry != null &&
+          widget.detailEntry.toString().trim().isNotEmpty;
+
+      if (isVisitPlan) {
+
+        int entryId = int.tryParse(widget.detailEntry.toString()) ?? 0;
+
+        // Update local storage so 'synced' becomes 'yes' & 'status' becomes 'done'
+        await VisitPlanApi.updateSyncedStatus(entryId);
+
+        // If it's a Visit Plan -> Reload and navigate to VisitPlanPage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const VisitPlanPage()),
+        );
+      }
+      // If it's a Direct Sale Order, it stays on this page since _resetUIState() already reset Step to 1.
+
+    }else {
       // Look at your debug console for the full JSON dump and Server Error response text!
       _showSnack("Failed to save order. Check logs for details.", isError: true);
     }
@@ -395,9 +430,10 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            "Direct Sale Order",
-            style: TextStyle(
+          Text(
+            // 🚀 Dynamically switches label depending on detailEntry value
+            (widget.detailEntry != null) ? "Sale from Visit Plan" : "Direct Sale Order",
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -405,7 +441,8 @@ class _SaleUnplanPageState extends State<SaleUnplanPage>
           ),
 
           Text(
-            controller.selectedCustomer?.cardName ??
+            widget.customer?.cardName ??
+                controller.selectedCustomer?.cardName ??
                 "Select a customer",
             overflow: TextOverflow.ellipsis,
             maxLines: 1,

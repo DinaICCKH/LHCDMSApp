@@ -9,6 +9,7 @@ import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
 import 'Sale/sale_unplan.dart';
 import 'Sale/saleorder_listing.dart';
+import 'Sale/sales_reports_page.dart';
 import 'Sale/visited_list_page.dart';
 import 'Sale/vistit_plan.dart';
 import 'api/login_api.dart';
@@ -948,26 +949,13 @@ class _OperationsGrid extends StatelessWidget {
         const SizedBox(height: 12),
         _ReportBanner(
           onTap: () {
-            ScaffoldMessenger.of(context)
-              ..clearSnackBars()
-              ..showSnackBar(SnackBar(
-                content: const Row(children: [
-                  Icon(Icons.info_outline_rounded, color: _T.amber, size: 18),
-                  SizedBox(width: 10),
-                  Text("Reports coming soon!",
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          fontSize: 13)),
-                ]),
-                backgroundColor: _T.navyMid,
-                behavior: SnackBarBehavior.floating,
-                margin: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 12),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                duration: const Duration(seconds: 2),
-              ));
+            // 🚀 Navigate directly to your SalesReportsPage
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SalesReportsPage(),
+              ),
+            );
           },
         ),
       ],
@@ -1110,7 +1098,7 @@ class _ReportBannerState extends State<_ReportBanner> {
                           letterSpacing: 0.1,
                         )),
                     SizedBox(height: 2),
-                    Text("Analytics & insights coming soon",
+                    Text("Analytics & insights",
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 11,

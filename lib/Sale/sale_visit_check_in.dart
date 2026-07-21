@@ -531,6 +531,7 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                             customer: widget.customer,
                             initialReason: _selectedNoBuyReason,
                             // 🚀 PASS THE PRIMARY KEY VALUE HERE
+                            detailEntry: widget.customer.detailEntry,
                             checkInPrimaryKey: _checkInPrimaryKey,
                           ),
                         ),
@@ -562,6 +563,8 @@ class _SaleVisitCheckInPageState extends State<SaleVisitCheckInPage> {
                       MaterialPageRoute(
                         builder: (_) => SaleUnplanPage(
                           customer: apiCustomer,
+                          detailEntry: widget.customer.detailEntry,       // 🚀 Pass detailEntry here
+                          checkInPrimaryKey: _checkInPrimaryKey,          // 🚀 Pass Check-In Ref ID here
                         ),
                       ),
                     );

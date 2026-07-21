@@ -195,4 +195,59 @@ class VisitPlanApi {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("visit_plans");
   }
+
+  /// =======================
+  /// UPDATE SYNCED STATUS LOCALLY
+  /// =======================
+  static Future<void> updateSyncedStatus(int detailEntry) async {
+    if (detailEntry <= 0) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString("visit_plans");
+
+    if (jsonStr == null) return;
+
+    final List<dynamic> jsonList = jsonDecode(jsonStr);
+    List<VisitPlan> plans = jsonList.map((e) => VisitPlan.fromJson(e)).toList();
+
+    bool hasChanges = false;
+
+    // Map through and update the matching record
+    plans = plans.map((plan) {
+      if (plan.detailEntry == detailEntry) {
+        hasChanges = true;
+        // Return a new copy with synced = "yes" and status = "done"
+        return VisitPlan(
+          code: plan.code,
+          message: plan.message,
+          docEntry: plan.docEntry,
+          salesCode: plan.salesCode,
+          docYear: plan.docYear,
+          remarkH: plan.remarkH,
+          docNum: plan.docNum,
+          status: "done", // Automatically mark as done
+          visitDate: plan.visitDate,
+          cardCode: plan.cardCode,
+          cardName: plan.cardName,
+          tel1: plan.tel1,
+          contactPersonName: plan.contactPersonName,
+          reasonType: plan.reasonType,
+          remark: plan.remark,
+          synced: "yes",  // Mark as synced
+          detailEntry: plan.detailEntry,
+          fullAddress: plan.fullAddress,
+        );
+      }
+      return plan;
+    }).toList();
+
+    // Save back to local storage if a match was updated
+    if (hasChanges) {
+      await prefs.setString(
+        "visit_plans",
+        jsonEncode(plans.map((e) => e.toJson()).toList()),
+      );
+      print("✅ Local visit plan $detailEntry updated to SYNCED & DONE");
+    }
+  }
 }

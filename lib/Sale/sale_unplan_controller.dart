@@ -718,7 +718,11 @@ class SaleController extends ChangeNotifier {
   // ─────────────────────────────────────────────
   // SAVE ORDER
   // ─────────────────────────────────────────────
-  Future<bool> saveOrder({required String remark}) async {
+  Future<bool> saveOrder({
+    required String remark,
+    int? detailEntry,           // 🚀 1. Accept detailEntry here as a parameter
+    String? checkInPrimaryKey,
+  }) async {
     if (selectedCustomer == null || selectedItems.isEmpty) return false;
 
     isSaving = true;
@@ -759,7 +763,8 @@ class SaleController extends ChangeNotifier {
         docTotal: docTotal,
         userSign: currentUserCode,
         salesCode: currentSalesCode,
-        ref2: "",
+        ref1: checkInPrimaryKey.toString(),
+        ref2: detailEntry.toString(),
 
         comments: remark,
 

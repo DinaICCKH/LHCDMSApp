@@ -68,23 +68,33 @@ class _VisitPlanPageState extends State<VisitPlanPage>
       bool sameDay(DateTime a, DateTime b) =>
           a.year == b.year && a.month == b.month && a.day == b.day;
 
+      // 🚀 SORTING HELPER: PENDING comes first, SYNCED/DONE goes bottom
+      int sortByPendingStatus(VisitPlan a, VisitPlan b) {
+        final aPending = a.synced.toLowerCase() != "yes" && a.status.toLowerCase() != "done";
+        final bPending = b.synced.toLowerCase() != "yes" && b.status.toLowerCase() != "done";
+
+        if (aPending && !bPending) return -1; // a comes first
+        if (!aPending && bPending) return 1;  // b comes first
+        return 0;
+      }
+
       if (mounted) {
         setState(() {
-          allPlans = plans;
+          allPlans = plans..sort(sortByPendingStatus);
 
-          todayPlans = plans.where((p) => sameDay(p.visitDate, now)).toList();
-          tomorrowPlans = plans.where((p) => sameDay(p.visitDate, now.add(const Duration(days: 1)))).toList();
-          yesterdayPlans = plans.where((p) => sameDay(p.visitDate, now.subtract(const Duration(days: 1)))).toList();
+          todayPlans = plans.where((p) => sameDay(p.visitDate, now)).toList()..sort(sortByPendingStatus);
+          tomorrowPlans = plans.where((p) => sameDay(p.visitDate, now.add(const Duration(days: 1)))).toList()..sort(sortByPendingStatus);
+          yesterdayPlans = plans.where((p) => sameDay(p.visitDate, now.subtract(const Duration(days: 1)))).toList()..sort(sortByPendingStatus);
 
           upcomingPlans = plans.where((p) {
             return p.visitDate.isAfter(now.add(const Duration(days: 1))) && !sameDay(p.visitDate, now.add(const Duration(days: 1)));
-          }).toList();
+          }).toList()..sort(sortByPendingStatus);
 
           previousPlans = plans.where((p) {
             return p.visitDate.isBefore(now.subtract(const Duration(days: 1))) && !sameDay(p.visitDate, now.subtract(const Duration(days: 1)));
-          }).toList();
+          }).toList()..sort(sortByPendingStatus);
 
-          filteredPlans = plans;
+          filteredPlans = plans..sort(sortByPendingStatus);
           isLoading = false;
         });
       }
@@ -109,6 +119,15 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             p.docNum.toLowerCase().contains(q) ||
             p.tel1.toLowerCase().contains(q);
       }).toList();
+
+      // 🚀 Keep sorted by PENDING first even when searching
+      filteredPlans.sort((a, b) {
+        final aPending = a.synced.toLowerCase() != "yes" && a.status.toLowerCase() != "done";
+        final bPending = b.synced.toLowerCase() != "yes" && b.status.toLowerCase() != "done";
+        if (aPending && !bPending) return -1;
+        if (!aPending && bPending) return 1;
+        return 0;
+      });
     });
   }
 
