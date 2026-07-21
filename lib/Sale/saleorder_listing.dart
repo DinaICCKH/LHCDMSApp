@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import '/api/get_saleorderlist_api.dart'; // Pointing to your API file name
+import 'dart:typed_data';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:gal/gal.dart';
 
 class SaleOrderListingPage extends StatefulWidget {
   const SaleOrderListingPage({super.key});
@@ -268,13 +274,13 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       elevation: 2,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Colors.grey.shade300, width: 1),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200, width: 1),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.all(12),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
 
           // --- HEADER: TOP SECTION OF REAL DOCUMENT SYSTEM ---
           title: Column(
@@ -299,7 +305,45 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
                   ),
                 ],
               ),
-              const Divider(height: 12, thickness: 1),
+              const SizedBox(height: 10),
+
+              // 🚀 MODERN COMPACT ACTION BUTTONS (PDF & PHOTO)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  SizedBox(
+                    height: 32,
+                    child: OutlinedButton.icon(
+                      onPressed: () => _printOrSharePdf(order),
+                      icon: const Icon(Icons.picture_as_pdf, size: 14, color: Colors.redAccent),
+                      label: const Text("PDF", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.black87,
+                        side: BorderSide(color: Colors.grey.shade300),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    height: 32,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _saveOrderAsImage(context, order),
+                      icon: const Icon(Icons.photo_camera, size: 14, color: Colors.white),
+                      label: const Text("Photo", style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1976D2),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 16, thickness: 1),
 
               // Customer Core Identity Row
               Text(
@@ -703,6 +747,166 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
                 );
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// =============================================================
+  /// 🖨️ PDF EXPORT & PRINT HANDLER
+  /// =============================================================
+  Future<void> _printOrSharePdf(GroupedSaleOrder order) async {
+    final h = order.header;
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("SALES ORDER INVOICE", style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                  pw.Text("DocEntry: #${h.docEntry ?? '-'}", style: const pw.TextStyle(fontSize: 12)),
+                ],
+              ),
+              pw.Divider(),
+              pw.SizedBox(height: 8),
+              pw.Text("Customer: ${h.cardName ?? '-'}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
+              pw.Text("Code: ${h.cardCode ?? '-'}"),
+              pw.Text("Date: ${h.docDate != null ? h.docDate!.toIso8601String().split('T')[0] : '-'}"),
+              pw.SizedBox(height: 14),
+              pw.Text("ITEMIZED DETAILS:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+              pw.SizedBox(height: 6),
+              ...order.lines.map((item) => pw.Container(
+                padding: const pw.EdgeInsets.symmetric(vertical: 3),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Expanded(child: pw.Text("• ${item.itemCode} - ${item.dscription ?? ''}", style: const pw.TextStyle(fontSize: 10))),
+                    pw.Text("${item.quantity?.toStringAsFixed(2) ?? '0'} x \$${item.price?.toStringAsFixed(2) ?? '0'}", style: const pw.TextStyle(fontSize: 10)),
+                  ],
+                ),
+              )),
+              pw.SizedBox(height: 14),
+              pw.Divider(),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text("Grand Total:", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                  pw.Text("\$${h.docTotal.toStringAsFixed(2)}", style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 14)),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'SalesOrder_${h.docEntry ?? 0}.pdf',
+    );
+  }
+
+  /// =============================================================
+  /// 📸 SAVE TO GALLERY PHOTO HANDLER
+  /// =============================================================
+  Future<void> _saveOrderAsImage(BuildContext context, GroupedSaleOrder order) async {
+    final ScreenshotController screenshotController = ScreenshotController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Save Receipt Image", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        content: SizedBox(
+          width: 320,
+          child: SingleChildScrollView(
+            child: Screenshot(
+              controller: screenshotController,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: Text(
+                        "LYCHOY TRADING INVOICE",
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1976D2)),
+                      ),
+                    ),
+                    const Divider(),
+                    Text("Order ID: #${order.header.docEntry ?? '-'}", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text("Customer: ${order.header.cardName ?? '-'}", style: const TextStyle(fontSize: 11)),
+                    Text("Date: ${order.header.docDate != null ? order.header.docDate!.toIso8601String().split('T')[0] : '-'}", style: const TextStyle(fontSize: 11)),
+                    const SizedBox(height: 10),
+                    const Text("Items:", style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    ...order.lines.map((l) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              "• ${l.dscription ?? l.itemCode ?? 'Item'}\n   Qty: ${l.quantity?.toStringAsFixed(2) ?? '0'} x \$${l.price?.toStringAsFixed(2) ?? '0'}",
+                              style: const TextStyle(fontSize: 10, color: Colors.black87),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            "\$${l.lineTotal?.toStringAsFixed(2) ?? '0.00'}",
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    )),
+                    const Divider(),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "Total: \$${order.header.docTotal.toStringAsFixed(2)}",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.green),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                Uint8List? imageBytes = await screenshotController.capture(pixelRatio: 3.0);
+                if (imageBytes != null) {
+                  bool hasAccess = await Gal.hasAccess();
+                  if (!hasAccess) await Gal.requestAccess();
+                  await Gal.putImageBytes(imageBytes);
+
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("✅ Saved order image to Photos gallery!"), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("❌ Failed: $e"), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: const Text("Save to Photos"),
           ),
         ],
       ),
