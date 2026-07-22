@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kuberadmsdn/api/get_vistited_planlist_api.dart';
+import 'package:http/http.dart' as http;
+import 'package:gal/gal.dart';
 
 /// =============================================================
 /// VISITED LIST TRANSACTION LOG ARCHIVE VIEW
@@ -273,13 +275,8 @@ class _VisitedListPageState extends State<VisitedListPage> {
   }
 
   Widget _timelineRow(String phase, String timestamp, String? remark, String? gps, String? imageUrl) {
-    const String assetsDomain = "https://www.icckh.com";
     final bool isCheckIn = phase == "Check-In";
-
-    String fullImageUrl = "";
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      fullImageUrl = imageUrl.startsWith('/') ? "$assetsDomain$imageUrl" : "$assetsDomain/$imageUrl";
-    }
+    final String fullImageUrl = imageUrl ?? "";
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,41 +326,142 @@ class _VisitedListPageState extends State<VisitedListPage> {
           ),
         ),
         const SizedBox(width: 8),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: fullImageUrl.isNotEmpty
-              ? Image.network(
-            fullImageUrl,
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+        // 🔍 Tap thumbnail to view full-screen image
+        GestureDetector(
+          onTap: () {
+            if (fullImageUrl.isNotEmpty) {
+              _showFullScreenImage(context, fullImageUrl, phase);
+            }
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: fullImageUrl.isNotEmpty
+                ? Image.network(
+              fullImageUrl,
               width: 50,
               height: 50,
-              color: const Color(0xFFF1F5F9),
-              child: const Icon(Icons.broken_image_rounded, size: 16, color: Colors.grey),
-            ),
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
                 width: 50,
                 height: 50,
                 color: const Color(0xFFF1F5F9),
-                child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))),
-              );
-            },
-          )
-              : Container(
-            width: 50,
-            height: 50,
-            color: const Color(0xFFF1F5F9),
-            child: const Icon(Icons.image_not_supported_rounded, size: 16, color: Colors.black26),
+                child: const Icon(Icons.broken_image_rounded, size: 16, color: Colors.grey),
+              ),
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 50,
+                  height: 50,
+                  color: const Color(0xFFF1F5F9),
+                  child: const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))),
+                );
+              },
+            )
+                : Container(
+              width: 50,
+              height: 50,
+              color: const Color(0xFFF1F5F9),
+              child: const Icon(Icons.image_not_supported_rounded, size: 16, color: Colors.black26),
+            ),
           ),
         )
       ],
     );
   }
 
+  // 🖼️ Full-Screen Image Viewer Dialog with Save Option
+  void _showFullScreenImage(BuildContext context, String imageUrl, String phase) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Interactive Viewer lets users pinch-to-zoom the photo
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Text(
+                    "Failed to load image",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
+            // Top Bar: Title & Close Button
+            Positioned(
+              top: 40,
+              left: 20,
+              right: 20,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "$phase Image",
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+            // Bottom Bar: Save Button
+            Positioned(
+              bottom: 40,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF1E3A8A),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                ),
+                onPressed: () async {
+                  try {
+                    // Show loading indicator or snackbar
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Downloading image..."), duration: Duration(seconds: 1)),
+                    );
+
+                    // Fetch bytes using http
+                    final response = await http.get(Uri.parse(imageUrl));
+                    if (response.statusCode == 200) {
+                      // Save using Gal package
+                      await Gal.putImageBytes(response.bodyBytes);
+
+                      if (context.mounted) {
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Image saved to photos successfully!"), backgroundColor: Colors.green),
+                        );
+                      }
+                    } else {
+                      throw Exception("Failed to download");
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Failed to save image: $e"), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: const Text("Save to Photos", style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
   /// =============================================================
   /// DYNAMIC ROOT BUILD ELEMENT TREE
   /// =============================================================
