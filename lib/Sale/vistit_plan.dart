@@ -7,6 +7,11 @@ import 'package:intl/intl.dart';
 import 'models/customer_visit_model.dart';
 import 'sale_visit_check_in.dart';
 
+// 🗺️ Import packages for OpenStreetMap view
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 /// =============================================================
 /// ROUTINE VISITATION STRATEGY & SCHEDULING MANAGEMENT VIEW
 /// =============================================================
@@ -68,13 +73,12 @@ class _VisitPlanPageState extends State<VisitPlanPage>
       bool sameDay(DateTime a, DateTime b) =>
           a.year == b.year && a.month == b.month && a.day == b.day;
 
-      // 🚀 SORTING HELPER: PENDING comes first, SYNCED/DONE goes bottom
       int sortByPendingStatus(VisitPlan a, VisitPlan b) {
         final aPending = a.synced.toLowerCase() != "yes" && a.status.toLowerCase() != "done";
         final bPending = b.synced.toLowerCase() != "yes" && b.status.toLowerCase() != "done";
 
-        if (aPending && !bPending) return -1; // a comes first
-        if (!aPending && bPending) return 1;  // b comes first
+        if (aPending && !bPending) return -1;
+        if (!aPending && bPending) return 1;
         return 0;
       }
 
@@ -120,7 +124,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             p.tel1.toLowerCase().contains(q);
       }).toList();
 
-      // 🚀 Keep sorted by PENDING first even when searching
       filteredPlans.sort((a, b) {
         final aPending = a.synced.toLowerCase() != "yes" && a.status.toLowerCase() != "done";
         final bPending = b.synced.toLowerCase() != "yes" && b.status.toLowerCase() != "done";
@@ -241,7 +244,6 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             const Divider(color: Color(0xFFF1F5F9), height: 1),
             const SizedBox(height: 12),
 
-            // Two-Column Grid for Plan Details
             Row(
               children: [
                 Expanded(child: _infoBlock("Document No", plan.docNum)),
@@ -260,6 +262,49 @@ class _VisitPlanPageState extends State<VisitPlanPage>
             if (plan.remark.isNotEmpty) ...[
               const SizedBox(height: 10),
               _infoBlock("Scheduler Special Remarks", plan.remark),
+            ],
+
+            // 🗺️ INDIVIDUAL MAP BUTTON
+            if (plan.gpsLocation.isNotEmpty && plan.gpsLocation.contains(',')) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 38,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.map_rounded, size: 16, color: Color(0xFF1D4ED8)),
+                  label: const Text(
+                    "View Location Map",
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFBFDBFE)),
+                    backgroundColor: const Color(0xFFEFF6FF),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () {
+                    try {
+                      final parts = plan.gpsLocation.split(',');
+                      final lat = double.parse(parts[0].trim());
+                      final lng = double.parse(parts[1].trim());
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SingleLocationMapScreen(
+                            targetLat: lat,
+                            targetLng: lng,
+                            locationTitle: plan.cardName,
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("❌ Invalid GPS Coordinate format")),
+                      );
+                    }
+                  },
+                ),
+              ),
             ],
 
             if (isToday)
@@ -328,77 +373,21 @@ class _VisitPlanPageState extends State<VisitPlanPage>
   }
 
   /// =============================================================
-  /// TAB DYNAMIC VIEW CONTENT DISPATCHER
+  /// TAB DYNAMIC VIEW CONTENT DISPATCHER (WITH LIST / MAP TOGGLE)
   /// =============================================================
   Widget _buildTab(
       List<VisitPlan> plans, {
         bool searchable = false,
         bool isToday = false,
       }) {
-    final data = searchable ? filteredPlans : plans;
-
-    if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (data.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.assignment_turned_in_rounded, size: 44, color: Colors.grey.shade300),
-            const SizedBox(height: 10),
-            const Text(
-              "No structural visit plans listed",
-              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        if (searchable)
-          Container(
-            padding: const EdgeInsets.all(12),
-            color: const Color(0xFF1E3A8A),
-            child: TextField(
-              onChanged: _filterSearch,
-              style: const TextStyle(fontSize: 14),
-              decoration: InputDecoration(
-                hintText: "Search customer, code, phone query...",
-                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-                prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadVisitPlans,
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: data.length,
-              itemBuilder: (context, index) {
-                return _buildCard(
-                  data[index],
-                  isToday: isToday,
-                );
-              },
-            ),
-          ),
-        ),
-      ],
+    return _TabContentView(
+      plans: searchable ? filteredPlans : plans,
+      isLoading: isLoading,
+      searchable: searchable,
+      isToday: isToday,
+      onSearchChanged: _filterSearch,
+      onRefresh: _loadVisitPlans,
+      buildCardCallback: (plan) => _buildCard(plan, isToday: isToday),
     );
   }
 
@@ -442,15 +431,409 @@ class _VisitPlanPageState extends State<VisitPlanPage>
         controller: _tabController,
         children: [
           _buildTab(yesterdayPlans),
-          _buildTab(
-            todayPlans,
-            isToday: true,
-          ),
+          _buildTab(todayPlans, isToday: true),
           _buildTab(tomorrowPlans),
           _buildTab(upcomingPlans),
-          _buildTab(
-            previousPlans,
-            searchable: true,
+          _buildTab(previousPlans, searchable: true),
+        ],
+      ),
+    );
+  }
+}
+
+/// =============================================================
+/// STATEFUL HELPER TO TOGGLE BETWEEN LIST VIEW & MULTI-PIN MAP VIEW
+/// =============================================================
+class _TabContentView extends StatefulWidget {
+  final List<VisitPlan> plans;
+  final bool isLoading;
+  final bool searchable;
+  final bool isToday;
+  final Function(String) onSearchChanged;
+  final Future<void> Function() onRefresh;
+  final Widget Function(VisitPlan) buildCardCallback;
+
+  const _TabContentView({
+    required this.plans,
+    required this.isLoading,
+    required this.searchable,
+    required this.isToday,
+    required this.onSearchChanged,
+    required this.onRefresh,
+    required this.buildCardCallback,
+  });
+
+  @override
+  State<_TabContentView> createState() => _TabContentViewState();
+}
+
+class _TabContentViewState extends State<_TabContentView> {
+  bool _isMapView = false; // Toggle state: false = List View, true = Map View
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (widget.plans.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.assignment_turned_in_rounded, size: 44, color: Colors.grey.shade300),
+            const SizedBox(height: 10),
+            const Text(
+              "No structural visit plans listed",
+              style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        if (widget.searchable)
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: const Color(0xFF1E3A8A),
+            child: TextField(
+              onChanged: widget.onSearchChanged,
+              style: const TextStyle(fontSize: 14),
+              decoration: InputDecoration(
+                hintText: "Search customer, code, phone query...",
+                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+
+        // 🔘 TOP TOGGLE BAR (List View vs Map View Switcher)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Text(
+                "Showing ${widget.plans.length} locations",
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+              ),
+              const Spacer(),
+              Container(
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _isMapView = false),
+                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: !_isMapView ? const Color(0xFF1E3A8A) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.list_alt_rounded, size: 14, color: !_isMapView ? Colors.white : Colors.grey.shade700),
+                            const SizedBox(width: 4),
+                            Text("List", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: !_isMapView ? Colors.white : Colors.grey.shade700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _isMapView = true),
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: _isMapView ? const Color(0xFF1E3A8A) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.map_rounded, size: 14, color: _isMapView ? Colors.white : Colors.grey.shade700),
+                            const SizedBox(width: 4),
+                            Text("Map View", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _isMapView ? Colors.white : Colors.grey.shade700)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xFFE2E8F0)),
+
+        // 🔄 CONTENT DISPLAY: EITHER LIST OR MULTI-PIN MAP
+        Expanded(
+          child: _isMapView
+              ? _MultiPinMapScreen(plans: widget.plans)
+              : RefreshIndicator(
+            onRefresh: widget.onRefresh,
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: widget.plans.length,
+              itemBuilder: (context, index) {
+                return widget.buildCardCallback(widget.plans[index]);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// =============================================================
+/// OPENSTREETMAP MULTI-PIN SCREEN FOR THE TAB
+/// =============================================================
+class _MultiPinMapScreen extends StatelessWidget {
+  final List<VisitPlan> plans;
+
+  const _MultiPinMapScreen({required this.plans});
+
+  Future<void> _openInGoogleMaps(double lat, double lng) async {
+    final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    try {
+      await launchUrl(
+        googleMapsUrl,
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      debugPrint('Could not launch map: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final validPlans = plans.where((p) => p.gpsLocation.isNotEmpty && p.gpsLocation.contains(',')).toList();
+
+    if (validPlans.isEmpty) {
+      return const Center(
+        child: Text("No valid GPS coordinates available for this tab list.", style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    LatLng centerPoint = const LatLng(11.5768812, 104.8865285);
+    try {
+      final firstCoords = validPlans.first.gpsLocation.split(',');
+      centerPoint = LatLng(double.parse(firstCoords[0].trim()), double.parse(firstCoords[1].trim()));
+    } catch (_) {}
+
+    return FlutterMap(
+      options: MapOptions(
+        initialCenter: centerPoint,
+        initialZoom: 14.0,
+        minZoom: 5.0,
+        maxZoom: 18.0, // 🛑 Restricts over-zooming which triggers heavy memory tile calls
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.example.lhcdms',
+          // 🚀 Performance & Memory Optimizations:
+          maxNativeZoom: 18, // Prevents loading non-existent high-zoom raster tile layers
+          retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0, // Handles high-res screens efficiently
+          tileBuilder: (context, widget, tile) {
+            // Smooths out tile loading appearance without memory bloat
+            return AnimatedOpacity(
+              opacity: 1.0,
+              duration: const Duration(milliseconds: 200),
+              child: widget,
+            );
+          },
+        ),
+        MarkerLayer(
+          markers: validPlans.map((plan) {
+            LatLng markerCoord = centerPoint;
+            try {
+              final parts = plan.gpsLocation.split(',');
+              markerCoord = LatLng(double.parse(parts[0].trim()), double.parse(parts[1].trim()));
+            } catch (_) {}
+
+            return Marker(
+              point: markerCoord,
+              width: 140,
+              height: 80,
+              child: GestureDetector(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: Text(plan.cardName, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Code: ${plan.cardCode}", style: const TextStyle(fontSize: 12)),
+                          Text("Phone: ${plan.tel1}", style: const TextStyle(fontSize: 12)),
+                          Text("Address: ${plan.fullAddress}", style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close")),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E3A8A), foregroundColor: Colors.white),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _openInGoogleMaps(markerCoord.latitude, markerCoord.longitude);
+                          },
+                          icon: const Icon(Icons.navigation, size: 14),
+                          label: const Text("Navigate"),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFF1E3A8A), width: 0.8),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(0, 1)),
+                        ],
+                      ),
+                      child: Text(
+                        plan.cardName.isNotEmpty ? plan.cardName : plan.cardCode,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A8A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Icon(Icons.location_pin, size: 30, color: Colors.red),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+/// =============================================================
+/// SINGLE LOCATION MAP SCREEN FOR INDIVIDUAL CARD BUTTONS
+/// =============================================================
+class SingleLocationMapScreen extends StatelessWidget {
+  final double targetLat;
+  final double targetLng;
+  final String locationTitle;
+
+  const SingleLocationMapScreen({
+    super.key,
+    required this.targetLat,
+    required this.targetLng,
+    required this.locationTitle,
+  });
+
+  Future<void> _openInGoogleMaps(double lat, double lng) async {
+    final Uri googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final LatLng pointLocation = LatLng(targetLat, targetLng);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          locationTitle,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Colors.white,
+          ),
+        ),
+        backgroundColor: const Color(0xFF1E3A8A),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: FlutterMap(
+        options: MapOptions(
+          initialCenter: pointLocation,
+          initialZoom: 15,
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            userAgentPackageName: 'com.example.lhcdms',
+          ),
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: pointLocation,
+                width: 80,
+                height: 80,
+                child: GestureDetector(
+                  onTap: () => _openInGoogleMaps(targetLat, targetLng),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.location_pin,
+                        size: 40,
+                        color: Colors.red,
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.all(
+                            Radius.circular(4),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          "Open G-Maps",
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

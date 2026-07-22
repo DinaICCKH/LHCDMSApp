@@ -25,6 +25,7 @@ class VisitPlan {
   final String synced;
   final int detailEntry;
   final String fullAddress;
+  final String gpsLocation;
 
   VisitPlan({
     required this.code,
@@ -45,6 +46,7 @@ class VisitPlan {
     required this.synced,
     required this.detailEntry,
     required this.fullAddress,
+    required this.gpsLocation,
   });
 
   /// SAFE PARSERS
@@ -82,6 +84,7 @@ class VisitPlan {
 
       detailEntry: _int(json['DetailEntry']),
       fullAddress: _str(json['FullAddress']),
+      gpsLocation: _str(json['GPSLocation']),
     );
   }
 
@@ -107,6 +110,7 @@ class VisitPlan {
     "Synced": synced,
     "DetailEntry": detailEntry,
     "FullAddress": fullAddress,
+    "GPSLocation": gpsLocation,
   };
 }
 
@@ -236,6 +240,7 @@ class VisitPlanApi {
           synced: "yes",  // Mark as synced
           detailEntry: plan.detailEntry,
           fullAddress: plan.fullAddress,
+          gpsLocation: plan.gpsLocation,
         );
       }
       return plan;

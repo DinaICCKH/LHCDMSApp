@@ -31,6 +31,11 @@ dependencies:
   geolocator: ^12.0.0
   permission_handler: ^12.0.1
 
+  # 🗺️ OpenStreetMap
+  flutter_map: ^8.2.1
+  latlong2: ^0.9.1
+  url_launcher: ^6.3.2
+
   # 📱 Device Info
   device_info_plus: ^12.3.0
 

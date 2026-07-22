@@ -836,7 +836,7 @@ class _SaleOrderListingPageState extends State<SaleOrderListingPage> {
                   children: [
                     const Center(
                       child: Text(
-                        "LYCHOY TRADING INVOICE",
+                        "LHC INVOICE",
                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1976D2)),
                       ),
                     ),
