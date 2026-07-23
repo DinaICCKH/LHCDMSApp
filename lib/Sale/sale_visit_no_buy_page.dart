@@ -5,23 +5,24 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:kuberadmsdn/Sale/vistit_plan.dart';
-import 'package:kuberadmsdn/api/login_api.dart'; // Added to resolve SalesCode via SessionManager
-import '../api/get_visitplan_api.dart';       // Added to import VisitPlanApi for local status update
-import '../api/save_checkout_api.dart';        // Adjust this import path to match your CheckOutService location
+import 'package:kuberadmsdn/api/login_api.dart';
+import '../api/get_visitplan_api.dart';
+import '../api/save_checkout_api.dart';
 import 'models/customer_visit_model.dart';
+import '../api/get_reason_api.dart';
 
 class SaleVisitNoBuyPage extends StatefulWidget {
   final CustomerVisit customer;
   final String? initialReason;
-  final int? detailEntry;           // 🚀 Added detailEntry parameter
-  final String? checkInPrimaryKey; // Added to pass the database reference ID from the check-in step
+  final int? detailEntry;
+  final String? checkInPrimaryKey;
 
   const SaleVisitNoBuyPage({
     super.key,
     required this.customer,
     this.initialReason,
     this.detailEntry,
-    this.checkInPrimaryKey, // Received contextually from the parent page
+    this.checkInPrimaryKey,
   });
 
   @override
@@ -35,29 +36,36 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
   File? _checkoutPhoto;
   bool _isSubmitting = false;
 
-  // Form Value States
-  String? _selectedNoBuyReason;
+  // Form Value States & API Data
+  Reason? _selectedReasonObj;
+  List<Reason> _reasonsList = [];
+  bool _isLoadingReasons = true;
   final TextEditingController _notesController = TextEditingController();
-
-  final List<String> _noBuyReasons = [
-    "Stock is still full",
-    "Price too high / No budget",
-    "Decision maker not present",
-    "Switched to competitor",
-    "Store temporarily closed",
-    "Other (See notes)"
-  ];
 
   // Instantiate your checkout service dependency
   final CheckOutService _checkOutService = CheckOutService();
 
-
   @override
   void initState() {
     super.initState();
-    if (widget.initialReason != null && _noBuyReasons.contains(widget.initialReason)) {
-      _selectedNoBuyReason = widget.initialReason;
-    }
+    _loadReasons();
+  }
+
+  Future<void> _loadReasons() async {
+    setState(() => _isLoadingReasons = true);
+    final localReasons = await ReasonApi.getLocalReasons();
+    setState(() {
+      _reasonsList = localReasons;
+      _isLoadingReasons = false;
+
+      // Handle initial reason mapping if passed from somewhere
+      if (widget.initialReason != null && localReasons.isNotEmpty) {
+        _selectedReasonObj = localReasons.firstWhere(
+              (r) => r.reasonEN == widget.initialReason || r.reason == widget.initialReason,
+          orElse: () => localReasons.first,
+        );
+      }
+    });
   }
 
   /// Force Camera Hardware Capture for Checkout Verification
@@ -110,7 +118,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
 
   /// Final Submissions Logic pipeline integrated with CheckOutService
   Future<void> _submitNoBuyCheckout() async {
-    if (_selectedNoBuyReason == null) {
+    if (_selectedReasonObj == null) {
       _showErrorDialog("Please specify a reason why the client is not purchasing.");
       return;
     }
@@ -124,10 +132,11 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
     try {
       final DateTime executionTime = DateTime.now();
 
-      // Compile reason and optional notes into the remark text field
+      // Compile reason and optional notes into the remark text field (English / Khmer format)
+      final String reasonStr = "${_selectedReasonObj!.reasonEN} / ${_selectedReasonObj!.reasonKH}";
       final String remarkText = _notesController.text.trim().isEmpty
-          ? "No-Buy Reason: $_selectedNoBuyReason"
-          : "No-Buy Reason: $_selectedNoBuyReason | Notes: ${_notesController.text.trim()}";
+          ? "No-Buy Reason: $reasonStr"
+          : "No-Buy Reason: $reasonStr | Notes: ${_notesController.text.trim()}";
 
       // Dynamically extract the active session values safely
       final String currentSalesCode = SessionManager.currentUser?.slpCode ?? "";
@@ -135,14 +144,14 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
 
       // Call the endpoint via your service layer mapping strategy
       final responseData = await _checkOutService.submitCheckOut(
-        mode: "Add", // Update workflow flags context relative to matching baseline check-ins
+        mode: "Add",
         docEntry: targetDocEntry,
         checkOutDate: executionTime,
         checkOutLat: _checkoutPosition!.latitude,
         checkOutLng: _checkoutPosition!.longitude,
         checkOutRemark: remarkText,
         salesCode: currentSalesCode,
-        imageFiles: [_checkoutPhoto!], // Wraps single local file target into expected list element
+        imageFiles: [_checkoutPhoto!],
       );
 
       setState(() => _isSubmitting = false);
@@ -150,7 +159,6 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
       if (responseData != null && responseData['success'] == true) {
         if (!mounted) return;
 
-        // 🚀 1. Check if detailEntry exists and is greater than 0, then update local status
         if (widget.detailEntry != null && widget.detailEntry! > 0) {
           await VisitPlanApi.updateSyncedStatus(widget.detailEntry!);
         }
@@ -162,11 +170,10 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
           ),
         );
 
-        // 🔄 Clear stack completely and rebuild VisitPlanPage fresh
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const VisitPlanPage()),
-              (route) => route.isFirst, // Keeps your main/home menu screen alive underneath
+              (route) => route.isFirst,
         );
       } else {
         final errorMessage = responseData != null ? responseData['message'] : "Server failed or validation rejected.";
@@ -278,18 +285,37 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
             const SizedBox(height: 10),
             const Text("Reason Required *", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
             const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _selectedNoBuyReason,
+
+            // Original Dropdown layout loaded dynamically via ReasonApi with ReasonEN / ReasonKH format
+            _isLoadingReasons
+                ? const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator(strokeWidth: 2)))
+                : DropdownButtonFormField<Reason>(
+              value: _selectedReasonObj,
+              isExpanded: true,
               style: const TextStyle(fontSize: 12, color: Colors.black87),
               hint: const Text("Select why they aren't buying", style: TextStyle(fontSize: 12)),
-              items: _noBuyReasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 12)))).toList(),
-              onChanged: (val) => setState(() => _selectedNoBuyReason = val),
+              items: _reasonsList.map((reason) {
+                return DropdownMenuItem<Reason>(
+                  value: reason,
+                  child: Text(
+                    "${reason.reasonEN} / ${reason.reasonKH}",
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                setState(() {
+                  _selectedReasonObj = val;
+                });
+              },
               decoration: InputDecoration(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
               ),
             ),
+
             const SizedBox(height: 12),
             const Text("Additional Remarks / Feedback", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black87)),
             const SizedBox(height: 6),
@@ -364,7 +390,7 @@ class _SaleVisitNoBuyPageState extends State<SaleVisitNoBuyPage> {
   }
 
   Widget _buildSubmitButton() {
-    bool canSubmit = _selectedNoBuyReason != null && _checkoutPhoto != null && _checkoutPosition != null && !_isLocating;
+    bool canSubmit = _selectedReasonObj != null && _checkoutPhoto != null && _checkoutPosition != null && !_isLocating;
 
     return SizedBox(
       width: double.infinity,

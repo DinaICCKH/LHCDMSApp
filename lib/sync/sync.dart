@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:kuberadmsdn/api/get_saleorder_summary_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart'; // For formatting the date/time nicely
 
 // APIs
 import '../api/get_customer_api.dart';
@@ -12,11 +13,9 @@ import '../api/get_uom_api.dart';
 import '../api/get_uom_group_api.dart';
 import '../api/get_price_list_api.dart';
 import '../api/get_itemprice_api.dart';
+import '../api/get_reason_api.dart';
 
 class SyncDataPage extends StatefulWidget {
-
-  /// Example:
-  /// {"Item": 148, "Customer": 1240}
   final Map<String, int>? initialCounts;
 
   const SyncDataPage({
@@ -29,30 +28,13 @@ class SyncDataPage extends StatefulWidget {
 }
 
 class _SyncDataPageState extends State<SyncDataPage> {
-
-  /// =========================================
-  /// ALL MODULES
-  /// =========================================
   final List<String> modules = [
-    "Item",
-    "Customer",
-    "Warehouse",
-    "UOM",
-    "UOM Group",
-    "Price List",
-    "Item Pricing",
-    "Visit Plan",
-    "Sale Summary",
+    "Item", "Customer", "Warehouse", "UOM",
+    "UOM Group", "Price List", "Item Pricing", "Visit Plan", "Sale Summary", "Reason",
   ];
 
-  /// =========================================
-  /// SHOW IN UI
-  /// =========================================
   final List<String> visibleModules = [
-    "Item",
-    "Customer",
-    "Visit Plan",
-    "Sale Summary",
+    "Item", "Customer", "Visit Plan", "Sale Summary", "Reason",
   ];
 
   Map<String, double> progress = {};
@@ -60,758 +42,341 @@ class _SyncDataPageState extends State<SyncDataPage> {
   Map<String, int> totalCount = {};
   Map<String, bool> syncedStatus = {};
 
-  bool isSyncing = false;
+  // Track last sync time per module
+  Map<String, String> lastSyncTimes = {};
 
+  bool isSyncing = false;
   String currentSyncingModule = "";
 
   @override
   void initState() {
-
     super.initState();
 
-    /// INIT DEFAULTS
     for (var module in modules) {
-
       progress[module] = 0;
-
       syncedCount[module] = 0;
-
       totalCount[module] = 0;
-
       syncedStatus[module] = false;
+      lastSyncTimes[module] = "-";
     }
-
     _loadSavedSyncStatus();
   }
 
-  /// =========================================
-  /// LOAD REAL LOCAL STATUS
-  /// =========================================
+  /// LOAD REAL LOCAL STATUS & LAST SYNC TIME
   Future<void> _loadSavedSyncStatus() async {
-
-    final prefs =
-    await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
 
     for (var module in modules) {
-
       int localCount = 0;
 
       try {
-
-        /// ================= ITEM
         if (module == "Item") {
-
-          final data =
-          await ItemApi.getLocalItems();
-
-          localCount = data.length;
+          localCount = (await ItemApi.getLocalItems()).length;
+        } else if (module == "Customer") {
+          localCount = (await CustomerApi.getLocalCustomers()).length;
+        } else if (module == "Warehouse") {
+          localCount = (await WarehouseApi.getLocalWarehouses()).length;
+        } else if (module == "UOM") {
+          localCount = (await UomApi.getLocalUoms()).length;
+        } else if (module == "UOM Group") {
+          localCount = (await UomGroupApi.getLocalUomGroups()).length;
+        } else if (module == "Price List") {
+          localCount = (await PriceListApi.getLocalPriceLists()).length;
+        } else if (module == "Item Pricing") {
+          localCount = (await ItemPricingApi.getLocalItemPricing()).length;
+        } else if (module == "Visit Plan") {
+          localCount = (await VisitPlanApi.getLocalVisitPlans()).length;
+        } else if (module == "Sale Summary") {
+          localCount = (await SaleSummaryApi.getLocalSaleSummary()).length;
+        } else if (module == "Reason") {
+          localCount = (await ReasonApi.getLocalReasons()).length;
         }
 
-        /// ================= CUSTOMER
-        else if (module == "Customer") {
-
-          final data =
-          await CustomerApi.getLocalCustomers();
-
-          localCount = data.length;
+        // Load saved last sync timestamp string
+        String? savedTime = prefs.getString("time_$module");
+        if (savedTime != null) {
+          lastSyncTimes[module] = savedTime;
         }
 
-        /// ================= WAREHOUSE
-        else if (module == "Warehouse") {
-
-          final data =
-          await WarehouseApi.getLocalWarehouses();
-
-          localCount = data.length;
-        }
-
-        /// ================= UOM
-        else if (module == "UOM") {
-
-          final data =
-          await UomApi.getLocalUoms();
-
-          localCount = data.length;
-        }
-
-        /// ================= UOM GROUP
-        else if (module == "UOM Group") {
-
-          final data =
-          await UomGroupApi.getLocalUomGroups();
-
-          localCount = data.length;
-        }
-
-        /// ================= PRICE LIST
-        else if (module == "Price List") {
-
-          final data =
-          await PriceListApi.getLocalPriceLists();
-
-          localCount = data.length;
-        }
-
-        /// ================= ITEM PRICING
-        else if (module == "Item Pricing") {
-
-          final data =
-          await ItemPricingApi.getLocalItemPricing();
-
-          localCount = data.length;
-        }
-
-        /// ================= VISIT PLAN
-        else if (module == "Visit Plan") {
-
-          final data =
-          await VisitPlanApi.getLocalVisitPlans();
-
-          localCount = data.length;
-        }
-
-        /// ================= SALE SUMMARY
-        else if (module == "Sale Summary") {
-
-          final data =
-          await SaleSummaryApi.getLocalSaleSummary();
-
-          localCount = data.length;
-        }
-
-        /// ================= UPDATE STATUS
         if (localCount > 0) {
-
           syncedStatus[module] = true;
-
           syncedCount[module] = localCount;
-
           totalCount[module] = localCount;
-
           progress[module] = 1.0;
-
-          await prefs.setBool(
-            "sync_$module",
-            true,
-          );
-
-          await prefs.setInt(
-            "total_$module",
-            localCount,
-          );
-
         } else {
-
           syncedStatus[module] = false;
-
           syncedCount[module] = 0;
-
           totalCount[module] = 0;
-
           progress[module] = 0;
-
-          await prefs.remove("sync_$module");
-
-          await prefs.remove("total_$module");
         }
-
       } catch (e) {
-
-        print(
-          "❌ Error loading "
-              "$module : $e",
-        );
-
-        syncedStatus[module] = false;
-
-        syncedCount[module] = 0;
-
-        totalCount[module] = 0;
-
-        progress[module] = 0;
+        print("❌ Error loading $module : $e");
       }
     }
-
-    setState(() {});
-  }
-
-  /// =========================================
-  /// SAVE STATUS
-  /// =========================================
-  Future<void> _saveSyncStatus(
-      String module,
-      int total,
-      ) async {
-
-    final prefs =
-    await SharedPreferences.getInstance();
-
-    await prefs.setBool(
-      "sync_$module",
-      true,
-    );
-
-    await prefs.setInt(
-      "total_$module",
-      total,
-    );
-  }
-
-  /// =========================================
-  /// RESET STATUS
-  /// =========================================
-  Future<void> _resetSyncStatus() async {
-
-    final prefs =
-    await SharedPreferences.getInstance();
-
-    for (var module in modules) {
-
-      await prefs.remove(
-        "sync_$module",
-      );
-
-      await prefs.remove(
-        "total_$module",
-      );
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  /// =========================================
-  /// SYNC MODULE
-  /// =========================================
-  Future<void> syncModule(
-      String module,
-      ) async {
+  /// SAVE STATUS & TIMESTAMP
+  Future<void> _saveSyncStatus(String module, int total) async {
+    final prefs = await SharedPreferences.getInstance();
+    final formattedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
 
-    if (isSyncing) return;
-
-    final prefs =
-    await SharedPreferences.getInstance();
-
-    final userCode =
-        prefs.getString("codeUser")
-            ?? "U001";
-
-    final deviceID =
-        prefs.getString("deviceID")
-            ?? "UNKNOWN";
-
-    const password = "123456";
+    await prefs.setBool("sync_$module", true);
+    await prefs.setInt("total_$module", total);
+    await prefs.setString("time_$module", formattedTime);
 
     setState(() {
-      isSyncing = true;
+      lastSyncTimes[module] = formattedTime;
     });
+  }
 
-    List<String> modulesToSync =
-    module == "Sync All"
-        ? modules
-        : [module];
+  /// RESET STATUS
+  Future<void> _resetSyncStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (var module in modules) {
+      await prefs.remove("sync_$module");
+      await prefs.remove("total_$module");
+      await prefs.remove("time_$module");
+      lastSyncTimes[module] = "-";
+    }
+  }
+
+  /// SYNC MODULE
+  Future<void> syncModule(String module) async {
+    if (isSyncing) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final userCode = prefs.getString("codeUser") ?? "U001";
+    final deviceID = prefs.getString("deviceID") ?? "UNKNOWN";
+    const password = "123456";
+
+    setState(() => isSyncing = true);
+
+    List<String> modulesToSync = module == "Sync All" ? modules : [module];
 
     try {
-
       for (var mod in modulesToSync) {
-
         setState(() {
-
           currentSyncingModule = mod;
-
           progress[mod] = 0;
-
           syncedCount[mod] = 0;
-
           totalCount[mod] = 0;
-
           syncedStatus[mod] = false;
         });
 
         List<dynamic> list = [];
 
-        /// ================= ITEM
         if (mod == "Item") {
-
-          list =
-          await ItemApi.fetchAndStoreItems(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
+          list = await ItemApi.fetchAndStoreItems(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "Customer") {
+          list = await CustomerApi.fetchAndStoreCustomers(password: password);
+        } else if (mod == "Warehouse") {
+          list = await WarehouseApi.fetchAndStoreWarehouses(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "UOM") {
+          list = await UomApi.fetchAndStoreUoms(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "UOM Group") {
+          list = await UomGroupApi.fetchAndStoreUomGroups(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "Price List") {
+          list = await PriceListApi.fetchAndStorePriceLists(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "Item Pricing") {
+          list = await ItemPricingApi.fetchAndStoreItemPricing(userCode: userCode, password: password, deviceID: deviceID);
+        } else if (mod == "Visit Plan") {
+          list = await VisitPlanApi.fetchAndStoreVisitPlans(password: password);
+        } else if (mod == "Sale Summary") {
+          list = await SaleSummaryApi.fetchAndStoreSaleSummary(password: password);
+        } else if (mod == "Reason") {
+          list = await ReasonApi.fetchAndStoreReasons(password: password);
         }
 
-        /// ================= CUSTOMER
-        else if (mod == "Customer") {
+        await _updateProgress(mod, list.length);
+        await _saveSyncStatus(mod, list.length);
 
-          list =
-          await CustomerApi.fetchAndStoreCustomers(
-            password: password,
-          );
-        }
-
-        /// ================= WAREHOUSE
-        else if (mod == "Warehouse") {
-
-          list =
-          await WarehouseApi.fetchAndStoreWarehouses(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
-        }
-
-        /// ================= UOM
-        else if (mod == "UOM") {
-
-          list =
-          await UomApi.fetchAndStoreUoms(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
-        }
-
-        /// ================= UOM GROUP
-        else if (mod == "UOM Group") {
-
-          list =
-          await UomGroupApi.fetchAndStoreUomGroups(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
-        }
-
-        /// ================= PRICE LIST
-        else if (mod == "Price List") {
-
-          list =
-          await PriceListApi.fetchAndStorePriceLists(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
-        }
-
-        /// ================= ITEM PRICING
-        else if (mod == "Item Pricing") {
-
-          list =
-          await ItemPricingApi.fetchAndStoreItemPricing(
-            userCode: userCode,
-            password: password,
-            deviceID: deviceID,
-          );
-        }
-
-        /// ================= VISIT PLAN
-        else if (mod == "Visit Plan") {
-
-          list =
-          await VisitPlanApi.fetchAndStoreVisitPlans(
-            password: password,
-          );
-        }
-
-        /// ================= SALE SUMMARY
-        else if (mod == "Sale Summary") {
-
-          list =
-          await SaleSummaryApi.fetchAndStoreSaleSummary(
-            password: password,
-          );
-        }
-
-        await _updateProgress(
-          mod,
-          list.length,
-        );
-
-        await _saveSyncStatus(
-          mod,
-          list.length,
-        );
-
-        setState(() {
-
-          syncedStatus[mod] = true;
-        });
+        setState(() => syncedStatus[mod] = true);
       }
 
       if (mounted) {
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              "Sync completed successfully",
-            ),
+            content: Text("Sync completed successfully"),
             backgroundColor: Colors.green,
           ),
         );
       }
-
     } catch (e) {
-
-      print(
-        "❌ SYNC ERROR: $e",
-      );
+      print("❌ SYNC ERROR: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSyncing = false;
+          currentSyncingModule = "";
+        });
+      }
     }
-
-    setState(() {
-
-      isSyncing = false;
-
-      currentSyncingModule = "";
-    });
   }
 
-  /// =========================================
   /// CLEAR ALL LOCAL DATA
-  /// =========================================
   Future<void> _clearAllData() async {
-
-    final confirm =
-    await showDialog<bool>(
-
+    final confirm = await showDialog<bool>(
       context: context,
-
       barrierDismissible: false,
-
-      builder: (_) {
-
-        return AlertDialog(
-
-          title: const Text(
-            "Clear Local Data",
+      builder: (_) => AlertDialog(
+        title: const Text("Clear Local Data"),
+        content: const Text("Are you sure you want to remove all local stored data?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
           ),
-
-          content: const Text(
-            "Are you sure you want to remove all local stored data?",
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Clear", style: TextStyle(color: Colors.white)),
           ),
-
-          actions: [
-
-            TextButton(
-              onPressed: () {
-
-                Navigator.pop(
-                  context,
-                  false,
-                );
-              },
-              child: const Text(
-                "Cancel",
-              ),
-            ),
-
-            ElevatedButton(
-
-              style:
-              ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-
-              onPressed: () {
-
-                Navigator.pop(
-                  context,
-                  true,
-                );
-              },
-
-              child: const Text(
-                "Clear",
-                style: TextStyle(
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
-
     if (confirm != true) return;
-
-    setState(() {
-      isSyncing = true;
-    });
-
+    setState(() => isSyncing = true);
     try {
-
-      /// CLEAR ALL LOCAL TABLES
       await ItemApi.clearLocalItems();
-
       await CustomerApi.clearLocalCustomers();
-
       await WarehouseApi.clearLocalWarehouses();
-
       await UomApi.clearLocalUoms();
-
       await UomGroupApi.clearLocalUomGroups();
-
       await PriceListApi.clearLocalPriceLists();
-
       await ItemPricingApi.clearLocalItemPricing();
-
       await VisitPlanApi.clearLocalVisitPlans();
-
       await SaleSummaryApi.clearLocalSaleSummary();
+      await ReasonApi.clearLocalReasons();
 
-      /// RESET FLAGS
       await _resetSyncStatus();
 
-      /// RESET UI
       for (var module in modules) {
-
         progress[module] = 0;
-
         syncedCount[module] = 0;
-
         totalCount[module] = 0;
-
         syncedStatus[module] = false;
+        lastSyncTimes[module] = "-";
       }
-
       if (mounted) {
-
         setState(() {});
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              "All local data cleared",
-            ),
+            content: Text("All local data cleared"),
             backgroundColor: Colors.red,
           ),
         );
       }
-
     } catch (e) {
-
-      print(
-        "❌ CLEAR ERROR: $e",
-      );
+      print("❌ CLEAR ERROR: $e");
+    } finally {
+      if (mounted) {
+        setState(() => isSyncing = false);
+      }
     }
-
-    setState(() {
-      isSyncing = false;
-    });
   }
 
-  /// =========================================
   /// UPDATE PROGRESS
-  /// =========================================
-  Future<void> _updateProgress(
-      String mod,
-      int total,
-      ) async {
-
+  Future<void> _updateProgress(String mod, int total) async {
     totalCount[mod] = total;
-
     if (total == 0) {
-
-      setState(() {
-        progress[mod] = 1;
-      });
-
+      setState(() => progress[mod] = 1);
       return;
     }
-
     for (int i = 0; i < total; i++) {
-
-      await Future.delayed(
-        const Duration(milliseconds: 5),
-      );
-
+      await Future.delayed(const Duration(milliseconds: 5));
       setState(() {
-
         syncedCount[mod] = i + 1;
-
-        progress[mod] =
-            (i + 1) / total;
+        progress[mod] = (i + 1) / total;
       });
     }
   }
 
-  /// =========================================
-  /// MODULE CARD
-  /// =========================================
-  Widget syncCard(
-      String title,
-      ) {
-
-    final completed =
-        syncedStatus[title]
-            ?? false;
-
-    final current =
-        syncedCount[title]
-            ?? 0;
-
-    final total =
-        totalCount[title]
-            ?? 0;
+  Widget syncCard(String title) {
+    final completed = syncedStatus[title] ?? false;
+    final current = syncedCount[title] ?? 0;
+    final total = totalCount[title] ?? 0;
+    final lastTime = lastSyncTimes[title] ?? "-";
 
     return AnimatedContainer(
-
-      duration:
-      const Duration(milliseconds: 250),
-
-      margin:
-      const EdgeInsets.only(bottom: 12),
-
+      duration: const Duration(milliseconds: 250),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-
         color: Colors.white,
-
-        borderRadius:
-        BorderRadius.circular(16),
-
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
-
           BoxShadow(
-            color:
-            Colors.black.withOpacity(0.04),
-
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
-
             offset: const Offset(0, 4),
           ),
         ],
-
         border: Border.all(
-          color:
-          completed
-              ? Colors.green.withOpacity(0.3)
-              : Colors.grey.withOpacity(0.15),
+          color: completed ? Colors.green.withOpacity(0.3) : Colors.grey.withOpacity(0.15),
         ),
       ),
-
       child: InkWell(
-
-        borderRadius:
-        BorderRadius.circular(16),
-
-        onTap:
-        isSyncing
-            ? null
-            : () {
-          syncModule(title);
-        },
-
+        borderRadius: BorderRadius.circular(16),
+        onTap: isSyncing ? null : () => syncModule(title),
         child: Padding(
-
-          padding:
-          const EdgeInsets.all(16),
-
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-
-              /// ICON
               Container(
-
-                width: 52,
-                height: 52,
-
+                width: 52, height: 52,
                 decoration: BoxDecoration(
-
-                  color:
-                  completed
-                      ? Colors.green.withOpacity(0.12)
-                      : Colors.blue.withOpacity(0.12),
-
-                  borderRadius:
-                  BorderRadius.circular(14),
+                  color: completed ? Colors.green.withOpacity(0.12) : Colors.blue.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-
                 child: Icon(
-
-                  completed
-                      ? Icons.check_circle
-                      : Icons.sync,
-
-                  color:
-                  completed
-                      ? Colors.green
-                      : Colors.blue,
-
+                  completed ? Icons.check_circle : Icons.sync,
+                  color: completed ? Colors.green : Colors.blue,
                   size: 28,
                 ),
               ),
-
               const SizedBox(width: 14),
-
-              /// TEXT
               Expanded(
                 child: Column(
-
-                  crossAxisAlignment:
-                  CrossAxisAlignment.start,
-
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    Text(
-                      title,
-
-                      style:
-                      const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          "Last: $lastTime",
+                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                        ),
+                      ],
                     ),
-
                     const SizedBox(height: 6),
-
                     if (completed)
-
                       Text(
                         "Synced successfully ($total records)",
-
-                        style:
-                        const TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: const TextStyle(
+                          color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600,
                         ),
                       )
-
                     else
-
                       Column(
-
-                        crossAxisAlignment:
-                        CrossAxisAlignment.start,
-
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           LinearProgressIndicator(
-
-                            value:
-                            progress[title],
-
+                            value: progress[title],
                             minHeight: 6,
-
-                            backgroundColor:
-                            Colors.grey.shade200,
-
+                            backgroundColor: Colors.grey.shade200,
                             color: Colors.blue,
-
-                            borderRadius:
-                            BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-
                           const SizedBox(height: 5),
-
                           Text(
-
-                            total > 0
-                                ? "$current / $total synced"
-                                : "Ready to sync",
-
-                            style:
-                            const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                            total > 0 ? "$current / $total synced" : "Ready to sync",
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -825,177 +390,80 @@ class _SyncDataPageState extends State<SyncDataPage> {
     );
   }
 
-  /// =========================================
-  /// UI
-  /// =========================================
   @override
   Widget build(BuildContext context) {
-
     return PopScope(
-
       canPop: !isSyncing,
-
-      onPopInvoked: (didPop) async {
-
+      onPopInvokedWithResult: (didPop, result) {
         if (isSyncing) {
-
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "Please wait until sync is completed",
-              ),
+              content: Text("Please wait until sync is completed"),
             ),
           );
         }
       },
-
       child: Scaffold(
-
-        backgroundColor:
-        const Color(0xFFF5F7FA),
-
+        backgroundColor: const Color(0xFFF5F7FA),
         appBar: AppBar(
-
           title: const Text(
             "Sync Master Data",
-
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
           ),
-
-          backgroundColor:
-          const Color(0xFF1976D2),
-
+          backgroundColor: const Color(0xFF1976D2),
           foregroundColor: Colors.white,
-
           centerTitle: true,
-
-          automaticallyImplyLeading:
-          !isSyncing,
-
+          automaticallyImplyLeading: !isSyncing,
           actions: [
-
-            /// SYNC ALL
             IconButton(
-
               tooltip: "Sync All",
-
-              onPressed:
-              isSyncing
-                  ? null
-                  : () {
-                syncModule("Sync All");
-              },
-
-              icon: const Icon(
-                Icons.sync,
-              ),
+              onPressed: isSyncing ? null : () => syncModule("Sync All"),
+              icon: const Icon(Icons.sync),
             ),
-
-            /// CLEAR
             IconButton(
-
               tooltip: "Clear Local Data",
-
-              onPressed:
-              isSyncing
-                  ? null
-                  : _clearAllData,
-
-              icon: const Icon(
-                Icons.delete_outline,
-                color: Colors.redAccent,
-              ),
+              onPressed: isSyncing ? null : _clearAllData,
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
             ),
           ],
         ),
-
         body: Column(
           children: [
-
-            /// HEADER
             Container(
-
               width: double.infinity,
-
-              padding:
-              const EdgeInsets.all(14),
-
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-
                 color: Colors.white,
-
                 boxShadow: [
-
-                  BoxShadow(
-                    color:
-                    Colors.black.withOpacity(0.03),
-
-                    blurRadius: 5,
-                  ),
+                  BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5),
                 ],
               ),
-
               child: Row(
                 children: [
-
                   if (isSyncing)
-
                     const SizedBox(
-
-                      width: 18,
-                      height: 18,
-
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                      ),
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-
-                  if (isSyncing)
-                    const SizedBox(width: 10),
-
+                  if (isSyncing) const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-
-                      isSyncing
-                          ? "Syncing $currentSyncingModule..."
-                          : "Tap any module to sync data",
-
+                      isSyncing ? "Syncing $currentSyncingModule..." : "Tap any module to sync data manually",
                       style: TextStyle(
-
-                        color:
-                        isSyncing
-                            ? Colors.blue
-                            : Colors.black87,
-
-                        fontWeight:
-                        FontWeight.w600,
+                        color: isSyncing ? Colors.blue : Colors.black87,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-
-            /// LIST
             Expanded(
               child: ListView.builder(
-
-                padding:
-                const EdgeInsets.all(14),
-
-                itemCount:
-                visibleModules.length,
-
-                itemBuilder:
-                    (context, index) {
-
-                  return syncCard(
-                    visibleModules[index],
-                  );
+                padding: const EdgeInsets.all(14),
+                itemCount: visibleModules.length,
+                itemBuilder: (context, index) {
+                  return syncCard(visibleModules[index]);
                 },
               ),
             ),

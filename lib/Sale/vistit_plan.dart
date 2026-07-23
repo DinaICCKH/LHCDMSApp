@@ -643,17 +643,22 @@ class _MultiPinMapScreen extends StatelessWidget {
         initialCenter: centerPoint,
         initialZoom: 14.0,
         minZoom: 5.0,
-        maxZoom: 18.0, // 🛑 Restricts over-zooming which triggers heavy memory tile calls
+        maxZoom: 18.0,
+        // 🛡️ Prevents crashing if gestures push bounds out of bounds
+        cameraConstraint: CameraConstraint.contain(
+          bounds: LatLngBounds(
+            const LatLng(-90, -180),
+            const LatLng(90, 180),
+          ),
+        ),
       ),
       children: [
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.lhcdms',
-          // 🚀 Performance & Memory Optimizations:
-          maxNativeZoom: 18, // Prevents loading non-existent high-zoom raster tile layers
-          retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0, // Handles high-res screens efficiently
+          maxNativeZoom: 18,
+          retinaMode: MediaQuery.of(context).devicePixelRatio > 1.0,
           tileBuilder: (context, widget, tile) {
-            // Smooths out tile loading appearance without memory bloat
             return AnimatedOpacity(
               opacity: 1.0,
               duration: const Duration(milliseconds: 200),
@@ -663,16 +668,28 @@ class _MultiPinMapScreen extends StatelessWidget {
         ),
         MarkerLayer(
           markers: validPlans.map((plan) {
+            // 🛡️ Safely parse coordinates with fallback to prevent NaN/Infinity crashes
             LatLng markerCoord = centerPoint;
             try {
               final parts = plan.gpsLocation.split(',');
-              markerCoord = LatLng(double.parse(parts[0].trim()), double.parse(parts[1].trim()));
-            } catch (_) {}
+              if (parts.length >= 2) {
+                final lat = double.parse(parts[0].trim());
+                final lng = double.parse(parts[1].trim());
+
+                // Check if coordinates are finite and valid
+                if (lat.isFinite && lng.isFinite && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                  markerCoord = LatLng(lat, lng);
+                }
+              }
+            } catch (_) {
+              markerCoord = centerPoint; // Fallback safely
+            }
 
             return Marker(
               point: markerCoord,
               width: 140,
               height: 80,
+              alignment: Alignment.topCenter, // Ensures correct anchor point mapping during zoom scales
               child: GestureDetector(
                 onTap: () {
                   showDialog(

@@ -599,6 +599,7 @@ class _SaleHeroCard extends StatefulWidget {
 
 class _SaleHeroCardState extends State<_SaleHeroCard> {
   bool _pressed = false;
+  bool _isAmountHidden = false; // Add this inside your State class
 
   @override
   Widget build(BuildContext context) {
@@ -658,25 +659,44 @@ class _SaleHeroCardState extends State<_SaleHeroCard> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text("TOTAL SALES",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.2,
-                              )),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                "TOTAL SALES",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // 👁️ Banking-style Hide/Show Icon Button
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isAmountHidden = !_isAmountHidden;
+                                });
+                              },
+                              child: Icon(
+                                _isAmountHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                size: 16,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 6),
-                        // ✅ CHANGED: font size 28 → 22 for a shorter card
+                        // ✅ Conditional masking based on state
                         Text(
-                          "\$${widget.amount.toStringAsFixed(2)}",
+                          _isAmountHidden ? "\$ ••••••" : "\$${widget.amount.toStringAsFixed(2)}",
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 22,
