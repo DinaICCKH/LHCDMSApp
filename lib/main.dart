@@ -7,11 +7,11 @@ import 'package:permission_handler/permission_handler.dart';
 
 import 'Master/customer_master.dart';
 import 'Master/item_master.dart';
-import 'Sale/sale_unplan.dart';
-import 'Sale/saleorder_listing.dart';
-import 'Sale/sales_reports_page.dart';
-import 'Sale/visited_list_page.dart';
-import 'Sale/vistit_plan.dart';
+import 'Sale/Sale/sale_unplan.dart';
+import 'Sale/Sale/saleorder_listing.dart' show SaleOrderListingPage;
+import 'Sale/Reports/sales_reports_page.dart';
+import 'Sale/VistitPlan/visited_list_page.dart';
+import 'Sale/VistitPlan/vistit_plan.dart';
 import 'api/login_api.dart';
 import 'login/login.dart';
 import 'sync/sync.dart';

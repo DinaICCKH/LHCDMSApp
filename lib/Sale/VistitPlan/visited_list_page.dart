@@ -33,7 +33,7 @@ class _VisitedListPageState extends State<VisitedListPage> {
   final Map<String, String> _statusOptions = {
     "All": "All Logs",
     "CheckIn": "Checked In Only",
-    "Complete": "Completed Visited",
+    "CheckOut": "Completed Visited",
   };
 
   @override

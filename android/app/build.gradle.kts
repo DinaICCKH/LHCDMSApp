@@ -48,8 +48,8 @@ android {
         applicationId = "com.vongdina.kuberadmsdn"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.0.6"
+        versionCode = 7
+        versionName = "1.0.7"
     }
 
     buildTypes {

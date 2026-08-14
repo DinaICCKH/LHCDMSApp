@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../api/report03_sale_history_and_syn_status_service.dart';
+import '../../api/report03_sale_history_and_syn_status_service.dart';
 
 class Report03SaleHistoryandSynStatusPage extends StatefulWidget {
   const Report03SaleHistoryandSynStatusPage({Key? key}) : super(key: key);

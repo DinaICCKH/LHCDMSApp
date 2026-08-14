@@ -1,8 +1,8 @@
 // File: lib/pages/sales_reports_page.dart
 
 import 'package:flutter/material.dart';
-import 'package:kuberadmsdn/Sale/report03_sale_history_and_syn_status_page.dart';
-import 'package:kuberadmsdn/Sale/report04_product_sell_breakdown_page.dart';
+import 'package:kuberadmsdn/Sale/Reports/report03_sale_history_and_syn_status_page.dart';
+import 'package:kuberadmsdn/Sale/Reports/report04_product_sell_breakdown_page.dart';
 
 import 'daily_sale_report_page.dart';
 import 'opportunity_report_page.dart';

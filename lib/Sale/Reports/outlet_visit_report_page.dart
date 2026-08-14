@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../api/outlet_visit_report_api.dart';
+import '../../api/outlet_visit_report_api.dart';
 
 class OutletVisitReportPage extends StatefulWidget {
   const OutletVisitReportPage({super.key});

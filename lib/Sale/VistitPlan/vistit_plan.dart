@@ -1,11 +1,11 @@
 // File: lib/pages/visit_plan_page.dart
 
 import 'package:flutter/material.dart';
-import '../api/get_visitplan_api.dart';
+import '../../api/get_visitplan_api.dart';
 import 'package:intl/intl.dart';
 
-import 'models/customer_visit_model.dart';
-import 'sale_visit_check_in.dart';
+import '../models/customer_visit_model.dart';
+import '../Sale/sale_visit_check_in.dart';
 
 // 🗺️ Import packages for OpenStreetMap view
 import 'package:flutter_map/flutter_map.dart';

@@ -4,12 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:kuberadmsdn/Sale/vistit_plan.dart';
+import 'package:kuberadmsdn/Sale/VistitPlan/vistit_plan.dart';
 import 'package:kuberadmsdn/api/login_api.dart';
-import '../api/get_visitplan_api.dart';
-import '../api/save_checkout_api.dart';
-import 'models/customer_visit_model.dart';
-import '../api/get_reason_api.dart';
+import '../../api/get_visitplan_api.dart';
+import '../../api/save_checkout_api.dart';
+import '../models/customer_visit_model.dart';
+import '../../api/get_reason_api.dart';
 
 class SaleVisitNoBuyPage extends StatefulWidget {
   final CustomerVisit customer;

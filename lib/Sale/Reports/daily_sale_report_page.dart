@@ -1,19 +1,17 @@
-// opportunity_report_page.dart
-
 import 'package:flutter/material.dart';
-import '../api/opportunity_report_api.dart';
+import '../../api/daily_sale_report_api.dart';
 
-class OpportunityReportPage extends StatefulWidget {
-  const OpportunityReportPage({super.key});
+class DailySaleReportPage extends StatefulWidget {
+  const DailySaleReportPage({super.key});
 
   @override
-  State<OpportunityReportPage> createState() => _OpportunityReportPageState();
+  State<DailySaleReportPage> createState() => _DailySaleReportPageState();
 }
 
-class _OpportunityReportPageState extends State<OpportunityReportPage> {
+class _DailySaleReportPageState extends State<DailySaleReportPage> {
   bool isLoading = true;
-  List<OpportunityReportItem> reportItems = [];
-  List<OpportunityReportItem> filteredItems = [];
+  List<DailySaleReportItem> reportItems = [];
+  List<DailySaleReportItem> filteredItems = [];
   DateTime _selectedDate = DateTime.now();
 
   // Local filter states
@@ -34,11 +32,12 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
   Future<void> _loadReportData() async {
     setState(() => isLoading = true);
 
-    final results = await OpportunityReportApi.fetchReport(
-      passwordHash: "e10adc3949ba59abbe56e057f20f883e",
+    final results = await DailySaleReportApi.fetchReport(
+      passwordHash: "e10adc3949ba59abbe56e057f20f883e", // Securely pull or pass from session if needed
       asDate: _formatApiDate(_selectedDate),
     );
 
+    // Extract unique sale names dynamically from the fetched list for the filter dropdown
     Set<String> uniqueSales = {'All'};
     for (var item in results) {
       if (item.saleName != null && item.saleName!.isNotEmpty) {
@@ -50,6 +49,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
       reportItems = results;
       _availableSalesNames = uniqueSales.toList();
 
+      // Reset filter if previously selected sale is no longer present
       if (!_availableSalesNames.contains(_selectedSaleFilter)) {
         _selectedSaleFilter = 'All';
       }
@@ -59,6 +59,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
     });
   }
 
+  // Client-side local filtering (Instant sorting without hitting the backend API)
   void _applyLocalFilter() {
     filteredItems = reportItems.where((item) {
       bool matchesRep = _selectedSaleFilter == 'All' || item.saleName == _selectedSaleFilter;
@@ -90,21 +91,22 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFF1F5F9), // Modern soft background
       appBar: AppBar(
-        title: const Text("Opportunity Performance", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF1E3A8A),
+        title: const Text("Daily Sales Performance", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1E3A8A), // Blue Sea Header
         foregroundColor: Colors.white,
         elevation: 0,
       ),
       body: Column(
         children: [
-          // FILTERS BAR
+          // FILTERS BAR (Date Selector + Segmented Type Filter + Sales Dropdown)
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.white,
             child: Column(
               children: [
+                // Row 1: Date Picker & Refresh Button
                 Row(
                   children: [
                     Expanded(
@@ -157,7 +159,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // Segment Filter Bar
+                // Row 2: Own vs Team Segment Filter Bar
                 Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
@@ -174,7 +176,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // Sales Representative Filter Dropdown
+                // Row 3: Instant Local Sales Representative Filter Dropdown
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
@@ -234,7 +236,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                 children: [
                   Icon(Icons.inbox_outlined, size: 48, color: Colors.grey.shade400),
                   const SizedBox(height: 10),
-                  Text("No opportunity records found", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                  Text("No performance records found", style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                 ],
               ),
             )
@@ -244,7 +246,9 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
               itemBuilder: (context, index) {
                 final item = filteredItems[index];
                 final bool isOwn = item.type == "Own";
+                final bool isUp = item.amountStatus == "UP";
 
+                // Theme coloring based on Own vs Team
                 final cardAccentColor = isOwn ? const Color(0xFF3B82F6) : const Color(0xFF8B5CF6);
                 final badgeBgColor = isOwn ? const Color(0xFFEFF6FF) : const Color(0xFFF3E8FF);
 
@@ -267,7 +271,7 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // HEADER STRIP
+                        // HEADER STRIP (Type & Sales Name)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           color: badgeBgColor,
@@ -294,16 +298,31 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                                   ),
                                 ],
                               ),
-                              // Total Opportunity Badge
+                              // Status Up/Down Pill
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE2E8F0),
+                                  color: isUp ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
-                                child: Text(
-                                  "Total Opp: ${item.totalOpportunity ?? 0}",
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                      size: 14,
+                                      color: isUp ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "${item.amountStatus ?? 'NO CHANGE'} (${item.amountRateChangePercent?.toStringAsFixed(1) ?? '0.0'}%)",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isUp ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -313,50 +332,63 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                         // METRICS BODY
                         Padding(
                           padding: const EdgeInsets.all(16),
-                          child: Column(
+                          child: Row(
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildMetricBox(
-                                      "VISITED",
-                                      "${item.totalVisit ?? 0}",
-                                      "${item.visitPercent?.toStringAsFixed(1) ?? '0.0'}%",
-                                      const Color(0xFF16A34A),
-                                    ),
+                              // TODAY METRIC BOX
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildMetricBox(
-                                      "UNVISITED",
-                                      "${item.totalUnVisit ?? 0}",
-                                      "${item.unVisitPercent?.toStringAsFixed(1) ?? '0.0'}%",
-                                      const Color(0xFFDC2626),
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("TODAY'S SALE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        "\$${item.totalAmtAsDate?.toStringAsFixed(2) ?? '0.00'}",
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "${item.totalInvoiceAsDate ?? 0} Invoices",
+                                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildMetricBox(
-                                      "BUY",
-                                      "${item.totalBuy ?? 0}",
-                                      "${item.buyPercent?.toStringAsFixed(1) ?? '0.0'}%",
-                                      const Color(0xFF2563EB),
-                                    ),
+                              const SizedBox(width: 12),
+
+                              // YESTERDAY METRIC BOX
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildMetricBox(
-                                      "NO BUY",
-                                      "${item.totalNoBuy ?? 0}",
-                                      "${item.noBuyPercent?.toStringAsFixed(1) ?? '0.0'}%",
-                                      const Color(0xFFD97706),
-                                    ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text("YESTERDAY'S SALE", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        "\$${item.totalAmtYesterday?.toStringAsFixed(2) ?? '0.00'}",
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "${item.totalInvoiceYesterday ?? 0} Invoices",
+                                        style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
@@ -367,37 +399,6 @@ class _OpportunityReportPageState extends State<OpportunityReportPage> {
                 );
               },
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricBox(String title, String count, String percentage, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B))),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                count,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-              ),
-              Text(
-                percentage,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
-              ),
-            ],
           ),
         ],
       ),

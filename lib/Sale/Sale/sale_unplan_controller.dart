@@ -4,10 +4,10 @@ import 'package:kuberadmsdn/api/login_api.dart';
 import 'package:kuberadmsdn/api/sale_order_api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kuberadmsdn/api/save_itemlogpromotion_api.dart';
-import '../api/get_customer_api.dart' as api;
-import '../api/get_item_api.dart' as itemApi;
-import '../api/get_promotionresult_api.dart';
-import 'models/sale_order_model.dart';
+import '../../api/get_customer_api.dart' as api;
+import '../../api/get_item_api.dart' as itemApi;
+import '../../api/get_promotionresult_api.dart';
+import '../models/sale_order_model.dart';
 import 'package:flutter/material.dart';
 
 class SaleController extends ChangeNotifier {

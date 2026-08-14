@@ -5,11 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:kuberadmsdn/Sale/sale_unplan.dart';
+import 'package:kuberadmsdn/Sale/Sale/sale_unplan.dart';
 import 'package:kuberadmsdn/api/login_api.dart';
 import 'package:kuberadmsdn/api/save_checkin_api.dart';
-import '../api/get_customer_api.dart' as api;
-import 'models/customer_visit_model.dart';
+import '../../api/get_customer_api.dart' as api;
+import '../models/customer_visit_model.dart';
 import 'sale_visit_no_buy_page.dart';
 
 class SaleVisitCheckInPage extends StatefulWidget {
